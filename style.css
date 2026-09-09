@@ -33,9 +33,13 @@ h1 {
 	font-size: 1.75rem !important;
 }
 
-.block-container {
+.block-container,
+[data-testid="stMainBlockContainer"] {
     width: 100%;
-    padding: 1rem 2rem 2rem;
+    /* Top padding must clear the fixed toolbar ("Deploy" / menu); too small a
+       value (the old 1rem) let the first row render under it and get clipped -
+       most visible in stlite. */
+    padding: 3.5rem 2rem 2rem;
     min-width: auto;
     max-width: initial;
 }
@@ -49,12 +53,15 @@ section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
 	gap: 0.6rem;
 }
 
-/* Trim the large vertical padding baked into every slider. Keep enough
-	headroom above for the always-visible value, and enough below the track
-	for the min/max range labels that appear on hover. */
-section[data-testid="stSidebar"] [data-testid="stSlider"] > div:last-child > div {
-	padding-top: 1.35rem !important;
-	padding-bottom: 0.7rem !important;
+/* The slider's min/max tick bar is position:absolute and only fades in on
+	hover/focus, so it reserves no layout space of its own and would otherwise
+	overlay the widget below it (very visible in stlite). Reserve room for it
+	under each sidebar slider, and shrink the labels a touch. */
+section[data-testid="stSidebar"] [data-testid="stSlider"] {
+	margin-bottom: 1.25rem;
+}
+section[data-testid="stSidebar"] [data-testid="stSliderTickBar"] {
+	font-size: 0.75rem;
 }
 
 /* Pull each slider a little closer to its label (but leave room for the
@@ -87,4 +94,21 @@ section[data-testid="stSidebar"] hr {
 	background-color: #076b72;
 	border-color: #076b72;
 	color: #ffffff;
+}
+
+/* ---- Sidebar logo (st.logo) ---- */
+/* st.logo caps the height even at size="large"; the HSMA asset is a square
+	canvas with a landscape mark, so scale it up and let the header grow. */
+[data-testid="stSidebarHeader"] {
+	height: auto;
+	min-height: 0;
+	padding-top: 0.9rem;
+	padding-bottom: 0.4rem;
+}
+[data-testid="stSidebarLogo"],
+img.stLogo {
+	height: 4rem !important;
+	max-height: 4rem !important;
+	width: auto;
+	max-width: 100%;
 }
