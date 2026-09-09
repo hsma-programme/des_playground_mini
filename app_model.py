@@ -368,7 +368,7 @@ with tab1:
             del animation_dfs_log
             gc.collect()
 
-            render_looping_plotly_animation(animated_plot, height=850)
+            render_looping_plotly_animation(animated_plot)
 
             st.caption("""
                 The animation starts playing automatically and loops continuously, pausing briefly on the final frame before restarting.

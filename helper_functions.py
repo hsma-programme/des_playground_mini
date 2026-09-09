@@ -77,12 +77,13 @@ def add_logo():
 
 def render_looping_plotly_animation(
     fig,
-    height=850,
+    height=None,
     frame_duration=400,
     transition_duration=600,
     pause_between_loops_ms=1200,
     transparent_background=True,
     margin=None,
+    responsive=False,
 ):
     """
     Render an animated Plotly figure so that it starts playing on load and loops.
@@ -109,9 +110,12 @@ def render_looping_plotly_animation(
     fig:
         A plotly.graph_objects.Figure containing animation frames, e.g. the
         output of ``vidigi.animation.generate_animation``. Modified in place.
-    height: int
-        Height in pixels of the embedded iframe (leave headroom above the
-        figure's own height for the play button / slider strip).
+    height: int or None
+        Height in pixels of the embedded iframe. Defaults to the figure's own
+        ``layout.height`` (plus a small allowance to avoid a scrollbar), or 850
+        if the figure has no explicit height. The play button and slider that
+        vidigi adds sit *inside* the figure height, so no extra headroom is
+        needed.
     frame_duration, transition_duration: int
         Per-frame and transition durations in milliseconds. The defaults match
         vidigi's own defaults so autoplay runs at the same speed as the
@@ -125,12 +129,21 @@ def render_looping_plotly_animation(
     margin: dict or None
         Plotly ``layout.margin`` to apply. Defaults to zero on every side;
         Plotly's ``autoexpand`` still reserves room for the slider and buttons.
+    responsive: bool
+        Passed through to Plotly's JS config. Left False so the figure keeps its
+        own ``layout.width`` / ``layout.height`` (matching ``st.plotly_chart(...,
+        width="content")``); when True, Plotly stretches the plot to the iframe
+        width, which distorts the domain-stretched background image.
     """
     animation_opts = {
         "frame": {"duration": frame_duration, "redraw": False},
         "transition": {"duration": transition_duration},
         "mode": "immediate",
     }
+
+    if height is None:
+        fig_height = fig.layout.height
+        height = int(fig_height) + 10 if fig_height is not None else 850
 
     layout_updates = {"margin": margin or dict(l=0, r=0, t=0, b=0)}
     if transparent_background:
@@ -154,7 +167,7 @@ def render_looping_plotly_animation(
         auto_play=True,
         animation_opts=animation_opts,
         post_script=loop_script,
-        config={"displayModeBar": False},
+        config={"displayModeBar": False, "responsive": responsive},
     )
 
     if transparent_background:
