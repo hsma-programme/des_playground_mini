@@ -1,3 +1,4 @@
+import json
 import urllib.request as request
 import streamlit as st
 import streamlit.components.v1 as components
@@ -72,6 +73,70 @@ def add_logo():
         """,
         unsafe_allow_html=True,
     )
+
+
+def render_looping_plotly_animation(
+    fig,
+    height=850,
+    frame_duration=400,
+    transition_duration=600,
+    pause_between_loops_ms=1200,
+):
+    """
+    Render an animated Plotly figure so that it starts playing on load and loops.
+
+    Streamlit's ``st.plotly_chart`` cannot autoplay (or loop) a Plotly frame
+    animation, so instead the figure is exported to a self-contained HTML
+    document (plotly.js pulled from the CDN) and embedded via
+    ``st.components.v1.html``. This keeps working under stlite because the
+    iframe only needs the browser plus a CDN - no Pyodide involvement.
+
+    Plotly's own ``auto_play=True`` starts the animation once ``newPlot``
+    resolves. A small ``post_script`` then re-triggers the animation each time
+    it finishes (with a short pause on the final frame), giving a continuous
+    loop. The play/pause buttons and slider baked into ``fig`` still work.
+
+    Params:
+    ------
+    fig:
+        A plotly.graph_objects.Figure containing animation frames, e.g. the
+        output of ``vidigi.animation.generate_animation``.
+    height: int
+        Height in pixels of the embedded iframe (leave headroom above the
+        figure's own height for the play button / slider strip).
+    frame_duration, transition_duration: int
+        Per-frame and transition durations in milliseconds. The defaults match
+        vidigi's own defaults so autoplay runs at the same speed as the
+        ``play`` button.
+    pause_between_loops_ms: int
+        How long to hold on the last frame before restarting each loop.
+    """
+    animation_opts = {
+        "frame": {"duration": frame_duration, "redraw": False},
+        "transition": {"duration": transition_duration},
+        "mode": "immediate",
+    }
+
+    # {plot_id} is substituted by plotly with the id of the figure's div.
+    loop_script = """
+    var gd = document.getElementById('{plot_id}');
+    var _loopOpts = %s;
+    function _vidigiLoop() { Plotly.animate(gd, null, _loopOpts); }
+    gd.on('plotly_animated', function () {
+        setTimeout(_vidigiLoop, %d);
+    });
+    """ % (json.dumps(animation_opts), pause_between_loops_ms)
+
+    html = fig.to_html(
+        include_plotlyjs="cdn",
+        full_html=True,
+        auto_play=True,
+        animation_opts=animation_opts,
+        post_script=loop_script,
+        config={"displayModeBar": False},
+    )
+
+    components.html(html, height=height, scrolling=True)
 
 
 def center_running():

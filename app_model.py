@@ -13,7 +13,11 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 import numpy as np
-from helper_functions import add_logo, center_running
+from helper_functions import (
+    add_logo,
+    center_running,
+    render_looping_plotly_animation,
+)
 from model_classes import Scenario, multiple_replications
 from vidigi.prep import (
     reshape_for_animations,
@@ -362,14 +366,11 @@ with tab1:
             del animation_dfs_log
             gc.collect()
 
-            st.plotly_chart(
-                animated_plot,
-                width="content",
-                config={"displayModeBar": False},
-            )
+            render_looping_plotly_animation(animated_plot, height=850)
 
             st.caption("""
-                The buttons to the left of the slider below the plot can be used to start and stop the animation.
+                The animation starts playing automatically and loops continuously, pausing briefly on the final frame before restarting.
+                The buttons to the left of the slider below the plot can be used to pause and restart the animation.
                 Clicking on the bar below the plot and dragging your cursor to the left or right allows you to rapidly jump through to a different time in the simulation.
                 Only the first replication of the simulation is shown.
                 """)
