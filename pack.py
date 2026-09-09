@@ -8,7 +8,7 @@ pack(
     prepend_github_path="hsma-programme/des_playground_mini",
     extra_files_to_link=[
         "app_model.py",
-        "styles.css",
+        "style.css",
         "resources/hsma_logo.png",
         "resources/hsma_logo_transparent_background_large.png",
         "resources/hsma_logo_transparent_background_small.png",
