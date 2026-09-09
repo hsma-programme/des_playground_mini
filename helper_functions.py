@@ -84,6 +84,7 @@ def render_looping_plotly_animation(
     transparent_background=True,
     margin=None,
     responsive=False,
+    text_color=None,
 ):
     """
     Render an animated Plotly figure so that it starts playing on load and loops.
@@ -134,6 +135,11 @@ def render_looping_plotly_animation(
         own ``layout.width`` / ``layout.height`` (matching ``st.plotly_chart(...,
         width="content")``); when True, Plotly stretches the plot to the iframe
         width, which distorts the domain-stretched background image.
+    text_color: str or None
+        If given, applied to the figure font, the play/pause buttons and the
+        slider (label and current-value). Streamlit's frontend normally adapts
+        text colour to the app theme; a standalone HTML export does not, so on a
+        dark theme the slider clock and tick labels would otherwise render dim.
     """
     animation_opts = {
         "frame": {"duration": frame_duration, "redraw": False},
@@ -149,6 +155,16 @@ def render_looping_plotly_animation(
     if transparent_background:
         layout_updates["paper_bgcolor"] = "rgba(0,0,0,0)"
         layout_updates["plot_bgcolor"] = "rgba(0,0,0,0)"
+    if text_color is not None:
+        # Merged (not replaced) into the updatemenus/sliders vidigi already set.
+        layout_updates["font"] = dict(color=text_color)
+        layout_updates["updatemenus"] = [dict(font=dict(color=text_color))]
+        layout_updates["sliders"] = [
+            dict(
+                font=dict(color=text_color),
+                currentvalue=dict(font=dict(color=text_color)),
+            )
+        ]
     fig.update_layout(**layout_updates)
 
     # {plot_id} is substituted by plotly with the id of the figure's div.

@@ -354,7 +354,7 @@ with tab1:
                 event_position_df=event_position_df,
                 scenario=args,
                 include_play_button=True,
-                plotly_height=750,
+                plotly_height=700,
                 plotly_width=1150,
                 override_x_max=700,
                 override_y_max=675,
@@ -368,7 +368,7 @@ with tab1:
             del animation_dfs_log
             gc.collect()
 
-            render_looping_plotly_animation(animated_plot)
+            render_looping_plotly_animation(animated_plot, text_color="white")
 
             st.caption("""
                 The animation starts playing automatically and loops continuously, pausing briefly on the final frame before restarting.
