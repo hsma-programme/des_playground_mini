@@ -81,6 +81,8 @@ def render_looping_plotly_animation(
     frame_duration=400,
     transition_duration=600,
     pause_between_loops_ms=1200,
+    transparent_background=True,
+    margin=None,
 ):
     """
     Render an animated Plotly figure so that it starts playing on load and loops.
@@ -96,11 +98,17 @@ def render_looping_plotly_animation(
     it finishes (with a short pause on the final frame), giving a continuous
     loop. The play/pause buttons and slider baked into ``fig`` still work.
 
+    ``st.plotly_chart`` normally hands the figure to Streamlit's frontend, which
+    forces a transparent paper/plot background (so the page colour shows through)
+    and trims the plot margins. A standalone HTML export gets neither, so it is
+    reproduced here: without it the figure renders on an opaque white card with
+    wide default margins that squash the (domain-stretched) background image.
+
     Params:
     ------
     fig:
         A plotly.graph_objects.Figure containing animation frames, e.g. the
-        output of ``vidigi.animation.generate_animation``.
+        output of ``vidigi.animation.generate_animation``. Modified in place.
     height: int
         Height in pixels of the embedded iframe (leave headroom above the
         figure's own height for the play button / slider strip).
@@ -110,12 +118,25 @@ def render_looping_plotly_animation(
         ``play`` button.
     pause_between_loops_ms: int
         How long to hold on the last frame before restarting each loop.
+    transparent_background: bool
+        If True (default), force a transparent paper/plot background and a
+        transparent iframe body so the Streamlit page colour shows through, as
+        ``st.plotly_chart`` does.
+    margin: dict or None
+        Plotly ``layout.margin`` to apply. Defaults to zero on every side;
+        Plotly's ``autoexpand`` still reserves room for the slider and buttons.
     """
     animation_opts = {
         "frame": {"duration": frame_duration, "redraw": False},
         "transition": {"duration": transition_duration},
         "mode": "immediate",
     }
+
+    layout_updates = {"margin": margin or dict(l=0, r=0, t=0, b=0)}
+    if transparent_background:
+        layout_updates["paper_bgcolor"] = "rgba(0,0,0,0)"
+        layout_updates["plot_bgcolor"] = "rgba(0,0,0,0)"
+    fig.update_layout(**layout_updates)
 
     # {plot_id} is substituted by plotly with the id of the figure's div.
     loop_script = """
@@ -135,6 +156,13 @@ def render_looping_plotly_animation(
         post_script=loop_script,
         config={"displayModeBar": False},
     )
+
+    if transparent_background:
+        html = html.replace(
+            "<body>",
+            '<body style="margin:0;padding:0;background-color:transparent;">',
+            1,
+        )
 
     components.html(html, height=height, scrolling=True)
 
