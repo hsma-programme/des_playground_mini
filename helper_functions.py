@@ -45,33 +45,17 @@ def read_file_contents_web(path):
 
 def add_logo():
     """
-    Add a logo at the top of the page navigation sidebar
+    Show the HSMA logo at the top left of the sidebar.
 
-    Approach written by blackary on
-    https://discuss.streamlit.io/t/put-logo-and-title-above-on-top-of-page-navigation-in-sidebar-of-multipage-app/28213/5
-
+    Uses ``st.logo`` (the built-in replacement for the old CSS
+    ``[data-testid="stSidebarNav"]`` background-image hack). The image is the
+    linked file from this repo's ``resources/`` folder, so it resolves both
+    locally and on the stlite virtual filesystem.
     """
-    st.markdown(
-        """
-        <style>
-            [data-testid="stSidebarNav"] {
-                background-image: url(https://raw.githubusercontent.com/hsma-programme/Teaching_DES_Concepts_Streamlit/main/resources/hsma_logo_transparent_background_small.png);
-                background-repeat: no-repeat;
-                padding-top: 175px;
-                background-position: 40px 30px;
-            }
-            [data-testid="stSidebarNav"]::before {
-                content: "The DES Playground";
-                padding-left: 20px;
-                margin-top: 50px;
-                font-size: 30px;
-                position: relative;
-                top: 100px;
-            }
-
-        </style>
-        """,
-        unsafe_allow_html=True,
+    st.logo(
+        "resources/hsma_logo_transparent_background_large.png",
+        size="large",
+        link="https://sites.google.com/nihr.ac.uk/hsma",
     )
 
 
