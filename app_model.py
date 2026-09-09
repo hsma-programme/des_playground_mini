@@ -153,6 +153,8 @@ with tab1:
     if button_run_pressed:
         # add a spinner and then display success box
         with st.spinner("Simulating the minor injuries unit..."):
+            await asyncio.sleep(0.1)
+
             # await asyncio.sleep(0.1)
             my_bar = st.empty()
 
