@@ -5,8 +5,9 @@ pack(
     extra_files_to_embed=[
         ".streamlit/config.toml",
     ],
-    prepend_github_path="hsma-programme/des_playground_minimal",
+    prepend_github_path="hsma-programme/des_playground_mini",
     extra_files_to_link=[
+        "app_model.py",
         "styles.css",
         "resources/hsma_logo.png",
         "resources/hsma_logo_transparent_background_large.png",
