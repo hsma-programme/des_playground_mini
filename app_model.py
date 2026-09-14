@@ -155,7 +155,6 @@ with tab1:
         with st.spinner("Simulating the minor injuries unit..."):
             await asyncio.sleep(0.1)
 
-            # await asyncio.sleep(0.1)
             my_bar = st.empty()
 
             my_bar = st.progress(0, text="Simulating the minor injuries unit...")
@@ -368,7 +367,9 @@ with tab1:
             del animation_dfs_log
             gc.collect()
 
-            render_looping_plotly_animation(animated_plot, text_color="white")
+            st.plotly_chart(animated_plot)
+
+            # render_looping_plotly_animation(animated_plot, text_color="white")
 
             st.caption("""
                 The animation starts playing automatically and loops continuously, pausing briefly on the final frame before restarting.
