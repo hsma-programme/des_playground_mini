@@ -23,7 +23,12 @@ from vidigi.prep import (
     reshape_for_animations,
     generate_animation_df,
 )
-from vidigi.animation import generate_animation
+from vidigi.animation import (
+    generate_animation,
+    add_subplot_panels,
+    add_synchronised_trace,
+)
+from vidigi.analysis import queue_size_over_time
 
 st.set_page_config(
     page_title="The Full Model",
@@ -353,7 +358,7 @@ with tab1:
                 event_position_df=event_position_df,
                 scenario=args,
                 include_play_button=True,
-                plotly_height=700,
+                plotly_height=950,
                 plotly_width=1150,
                 override_x_max=700,
                 override_y_max=675,
@@ -364,12 +369,94 @@ with tab1:
                 add_background_image="https://raw.githubusercontent.com/hsma-programme/Teaching_DES_Concepts_Streamlit/main/resources/Full%20Model%20Background%20Image%20-%20Horizontal%20Layout.drawio.png",
             )
 
+            # Add a line chart of queue lengths beneath the animation, revealed in
+            # step with the animation frames
+            queue_events = {
+                "triage_wait_begins": ("Triage", "#74c476"),
+                "MINORS_registration_wait_begins": ("Registration", "#c6dbef"),
+                "MINORS_examination_wait_begins": ("Examination", "#6baed6"),
+                "MINORS_treatment_wait_begins": ("Non-trauma treatment", "#2b8cbe"),
+                "TRAUMA_stabilisation_wait_begins": ("Stabilisation", "#fcae91"),
+                "TRAUMA_treatment_wait_begins": ("Trauma treatment", "#ef3b2c"),
+            }
+
+            # Sample hourly rather than every frame - each frame carries the whole
+            # line revealed so far, so 5-minute samples would bloat the figure
+            queue_sizes = queue_size_over_time(
+                single_log,
+                event_list=list(queue_events),
+                limit_duration=60 * 24 * 5,
+                every_x_time_units=60,
+            ).pivot(index="snapshot_time", columns="event", values="count")
+
+            frame_times = sorted(full_patient_df_plus_pos["snapshot_time"].unique())
+
+            # Traces are returned as plain dicts rather than go.Scatter - plotly
+            # validates them when they are attached to each frame anyway, and
+            # building ~8,600 validated go.Scatter objects first is slow
+            def queue_traces(frame_name, frame_index):
+                current_time = frame_times[frame_index]
+                revealed = queue_sizes[queue_sizes.index <= current_time]
+                # Extend each line to the current frame time, holding the last
+                # hourly value, so the line moves on every frame
+                x = np.append(revealed.index.values, current_time) / (60 * 24)
+                return [
+                    dict(
+                        type="scatter",
+                        x=x,
+                        y=np.append(revealed[event].values, revealed[event].iloc[-1]),
+                        mode="lines",
+                        line=dict(color=colour, shape="hv", width=2),
+                        name=label,
+                        showlegend=True,
+                        hovertemplate="%{y} waiting<extra>" + label + "</extra>",
+                        xaxis="x2",
+                        yaxis="y2",
+                    )
+                    for event, (label, colour) in queue_events.items()
+                ]
+
+            animated_plot = add_subplot_panels(
+                animated_plot,
+                row_heights=[0.75, 0.25],
+                hide_new_panel_axes=False,
+            )
+
+            # Keep vidigi's own traces out of the legend, which is switched on
+            # below for the queue lines
+            animated_plot.update_traces(showlegend=False)
+
+            animated_plot = add_synchronised_trace(animated_plot, queue_traces)
+
+            animated_plot.update_xaxes(
+                range=[0, 5], dtick=1, title_text="Day", row=2, col=1
+            )
+            animated_plot.update_yaxes(
+                range=[0, queue_sizes.values.max() + 1],
+                title_text="Patients waiting",
+                row=2,
+                col=1,
+            )
+            animated_plot.update_layout(
+                showlegend=True,
+                legend=dict(
+                    title_text="Patients waiting for:",
+                    orientation="h",
+                    x=0,
+                    y=0.27,
+                    xanchor="left",
+                    yanchor="bottom",
+                ),
+            )
+
+            del queue_sizes
             del animation_dfs_log
             gc.collect()
 
             render_looping_plotly_animation(animated_plot, text_color="white")
 
             st.caption("""
+                The chart beneath the animation shows how many patients are waiting in each queue, building up as the animation plays.
                 The animation starts playing automatically and loops continuously, pausing briefly on the final frame before restarting.
                 The buttons to the left of the slider below the plot can be used to pause and restart the animation.
                 Clicking on the bar below the plot and dragging your cursor to the left or right allows you to rapidly jump through to a different time in the simulation.

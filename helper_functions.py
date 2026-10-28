@@ -69,6 +69,7 @@ def render_looping_plotly_animation(
     margin=None,
     responsive=False,
     text_color=None,
+    redraw=None,
 ):
     """
     Render an animated Plotly figure so that it starts playing on load and loops.
@@ -124,9 +125,22 @@ def render_looping_plotly_animation(
         slider (label and current-value). Streamlit's frontend normally adapts
         text colour to the app theme; a standalone HTML export does not, so on a
         dark theme the slider clock and tick labels would otherwise render dim.
+    redraw: bool or None
+        Whether autoplay and looping fully redraw each frame. Needed when the
+        figure has traces Plotly can't simply restyle between frames, such as
+        those added on a second subplot by vidigi's ``add_synchronised_trace``
+        - without it they render on the first frame and then freeze. Defaults
+        to whatever the figure's play button uses (vidigi's synchronised trace
+        helpers switch that on when needed), or False if there is no play button.
     """
+    if redraw is None:
+        try:
+            redraw = fig.layout.updatemenus[0].buttons[0].args[1]["frame"]["redraw"]
+        except (IndexError, KeyError, TypeError):
+            redraw = False
+
     animation_opts = {
-        "frame": {"duration": frame_duration, "redraw": False},
+        "frame": {"duration": frame_duration, "redraw": redraw},
         "transition": {"duration": transition_duration},
         "mode": "immediate",
     }
