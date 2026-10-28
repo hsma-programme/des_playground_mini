@@ -61,6 +61,16 @@ SLIDER_DEFAULTS = dict(
 for slider_key, slider_value in SLIDER_DEFAULTS.items():
     st.session_state.setdefault(slider_key, slider_value)
 
+# Largest value each room slider can take
+SLIDER_MAX = dict(
+    n_triage=8,
+    n_trauma=11,
+    n_cubicles_2=11,
+    n_reg=10,
+    n_exam=10,
+    n_cubicles_1=10,
+)
+
 # Slider values for the one-click presets. The keys are the sidebar slider keys.
 PRESETS = {
     "🏥 Current setup": dict(SLIDER_DEFAULTS),
@@ -85,12 +95,7 @@ PRESETS = {
         non_trauma_treat_p=0.7,
     ),
     "💸 Throw money at it": dict(
-        n_triage=10,
-        n_reg=10,
-        n_exam=10,
-        n_trauma=10,
-        n_cubicles_1=10,
-        n_cubicles_2=10,
+        **SLIDER_MAX,
         prob_trauma=0.3,
         non_trauma_treat_p=0.7,
     ),
@@ -143,29 +148,29 @@ with st.sidebar:
     total_rooms_in_use_container = st.empty()
 
     st.subheader("Triage")
-    n_triage = st.slider("🚦 Number of Triage Cubicles", 1, 10, step=1, key="n_triage")
+    n_triage = st.slider("🚦 Number of Triage Cubicles", 1, SLIDER_MAX["n_triage"], step=1, key="n_triage")
 
     st.subheader("Trauma Pathway")
     n_trauma = st.slider(
-        "🛏️ Number of Trauma Bays for Stabilisation", 1, 10, step=1, key="n_trauma"
+        "🛏️ Number of Trauma Bays for Stabilisation", 1, SLIDER_MAX["n_trauma"], step=1, key="n_trauma"
     )
     n_cubicles_2 = st.slider(
-        "🤕 Trauma Treatment Cubicles", 1, 10, step=1, key="n_cubicles_2"
+        "🤕 Trauma Treatment Cubicles", 1, SLIDER_MAX["n_cubicles_2"], step=1, key="n_cubicles_2"
     )
 
     st.subheader("Non-Trauma Pathway")
-    n_reg = st.slider("📝 Number of Registration Cubicles", 1, 10, step=1, key="n_reg")
+    n_reg = st.slider("📝 Number of Registration Cubicles", 1, SLIDER_MAX["n_reg"], step=1, key="n_reg")
     n_exam = st.slider(
         "🔎 Number of Examination Rooms for non-trauma patients",
         1,
-        10,
+        SLIDER_MAX["n_exam"],
         step=1,
         key="n_exam",
     )
     n_cubicles_1 = st.slider(
         "💊 Non-Trauma Treatment Cubicles",
         1,
-        10,
+        SLIDER_MAX["n_cubicles_1"],
         step=1,
         key="n_cubicles_1",
     )
