@@ -12,6 +12,7 @@ pack(
         "resources/hsma_logo.png",
         "resources/hsma_logo_transparent_background_large.png",
         "resources/hsma_logo_transparent_background_small.png",
+        "resources/hsma_qr.png",
         "model_classes.py",
         "distributions.py",
         "helper_functions.py",

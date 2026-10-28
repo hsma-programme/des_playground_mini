@@ -29,7 +29,7 @@ Outputs can be compared across multiple scenarios within a single user session.
 
 HSMA is a course for people in England working in the health, social care and policing organisations. Over 15 months it trains participants in operational research and data science techniques to aid with service development and decision making.
 
-More information about the course can be found [here](https://sites.google.com/nihr.ac.uk/hsma)
+More information about the course can be found [here](https://hsma.co.uk)
 
 All of the course materials are open source - check out [our repositories](https://github.com/hsma-programme)
 

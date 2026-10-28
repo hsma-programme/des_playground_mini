@@ -3,7 +3,7 @@ base = "dark"
 
 [theme.dark]
 backgroundColor = "#1b1a1a"
-secondaryColor = "#007226"
+primaryColor = "#1fb1b9"
 
 
 [theme.dark.sidebar]

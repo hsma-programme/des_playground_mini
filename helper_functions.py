@@ -55,7 +55,7 @@ def add_logo():
     st.logo(
         "resources/hsma_logo_transparent_background_large.png",
         size="large",
-        link="https://sites.google.com/nihr.ac.uk/hsma",
+        link="https://hsma.co.uk",
     )
 
 
@@ -205,6 +205,84 @@ def render_looping_plotly_animation(
 UTIL_IDEAL_RANGE = (0.65, 0.85)
 WAIT_LIMIT_MINS = 120
 
+# Colours of the shaded "how are we doing?" bands drawn behind the charts
+BAND_GOOD = "#5DFDA0"
+BAND_WARN = "#FDD049"
+BAND_BAD = "#D45E5E"
+
+# Friendly axis labels for the columns of the model's results
+UTIL_LABELS = {
+    "01b_triage_util": "Triage<br>Bays",
+    "02b_registration_util": "Registration<br>Cubicles",
+    "03b_examination_util": "Examination<br>Bays",
+    "04b_treatment_util(non_trauma)": "Treatment<br>Bays<br>(non-trauma)",
+    "06b_trauma_util": "Stabilisation<br>Bays",
+    "07b_treatment_util(trauma)": "Treatment<br>Bays<br>(trauma)",
+}
+
+WAIT_LABELS = {
+    "01a_triage_wait": "Triage",
+    "02a_registration_wait": "Registration",
+    "03a_examination_wait": "Examination",
+    "04a_treatment_wait(non_trauma)": "Treatment<br>(non-trauma)",
+    "06a_trauma_wait": "Stabilisation",
+    "07a_treatment_wait(trauma)": "Treatment<br>(trauma)",
+}
+
+
+def add_util_bands(fig, orientation):
+    """
+    Shade a plotly figure by how good a utilisation level is.
+
+    Green is the ideal range, amber is under-used, red is over-stretched or
+    barely used.
+
+    Params:
+    ------
+    fig: plotly.graph_objects.Figure
+    orientation: str
+        "h" for horizontal bands (utilisation on the y axis), "v" for vertical
+        bands (utilisation on the x axis).
+    """
+    add_band = fig.add_hrect if orientation == "h" else fig.add_vrect
+    start, end = ("y0", "y1") if orientation == "h" else ("x0", "x1")
+
+    low, high = UTIL_IDEAL_RANGE
+    for band_start, band_end, colour in [
+        (low, high, BAND_GOOD),
+        (high, 1, BAND_BAD),
+        (0.4, low, BAND_WARN),
+        (0, 0.4, BAND_BAD),
+    ]:
+        add_band(
+            **{start: band_start, end: band_end},
+            fillcolor=colour,
+            opacity=0.25,
+            line_width=0,
+        )
+
+
+def add_wait_band(fig, orientation):
+    """
+    Shade the waits that meet the target (under ``WAIT_LIMIT_MINS``) in green.
+
+    Params:
+    ------
+    fig: plotly.graph_objects.Figure
+    orientation: str
+        "h" for a horizontal band (waits on the y axis), "v" for a vertical
+        band (waits on the x axis).
+    """
+    add_band = fig.add_hrect if orientation == "h" else fig.add_vrect
+    start, end = ("y0", "y1") if orientation == "h" else ("x0", "x1")
+
+    add_band(
+        **{start: 0, end: WAIT_LIMIT_MINS},
+        fillcolor=BAND_GOOD,
+        opacity=0.3,
+        line_width=0,
+    )
+
 
 def summarise_results(results):
     """
@@ -239,6 +317,120 @@ def summarise_results(results):
         "patients_seen": means["09_throughput"],
         "arrivals": int(results["00_arrivals"].sum()),
     }
+
+
+# The stages of the model: their results columns, what to call the resource
+# used there, and the sidebar slider (key) that sets how many there are.
+STAGES = {
+    "triage": dict(
+        wait="01a_triage_wait",
+        util="01b_triage_util",
+        resource="triage cubicle",
+        slider="n_triage",
+    ),
+    "registration": dict(
+        wait="02a_registration_wait",
+        util="02b_registration_util",
+        resource="registration cubicle",
+        slider="n_reg",
+    ),
+    "examination": dict(
+        wait="03a_examination_wait",
+        util="03b_examination_util",
+        resource="examination room",
+        slider="n_exam",
+    ),
+    "non-trauma treatment": dict(
+        wait="04a_treatment_wait(non_trauma)",
+        util="04b_treatment_util(non_trauma)",
+        resource="non-trauma treatment cubicle",
+        slider="n_cubicles_1",
+    ),
+    "stabilisation": dict(
+        wait="06a_trauma_wait",
+        util="06b_trauma_util",
+        resource="stabilisation bay",
+        slider="n_trauma",
+    ),
+    "trauma treatment": dict(
+        wait="07a_treatment_wait(trauma)",
+        util="07b_treatment_util(trauma)",
+        resource="trauma treatment cubicle",
+        slider="n_cubicles_2",
+    ),
+}
+
+
+def format_minutes(minutes):
+    """Format minutes for people, e.g. 45 -> "45 min", 133 -> "2h 13m", 3120 -> "2d 4h"."""
+    minutes = round(minutes)
+    if minutes < 60:
+        return f"{minutes} min"
+    if minutes < 24 * 60:
+        return f"{minutes // 60}h {minutes % 60:02d}m"
+    return f"{minutes // (24 * 60)}d {minutes % (24 * 60) // 60}h"
+
+
+def describe_results(results, room_counts, days):
+    """
+    Describe a run in a couple of plain-English sentences.
+
+    Points at the stage with the longest queue (if any is over the target) and
+    at the quietest resource (if it is under-used and could lose a room).
+
+    Params:
+    ------
+    results: pd.DataFrame
+        As for ``summarise_results``.
+    room_counts: dict
+        How many of each resource were available, keyed by slider key (the
+        ``slider`` entries of ``STAGES``).
+    days: int
+        Length of each simulated run, in days.
+
+    Returns:
+    -------
+    str
+        Markdown.
+    """
+    means = results.mean()
+
+    sentences = [
+        f"In an average {days}-day run, {means['00_arrivals']:,.0f} patients arrived "
+        f"and {means['09_throughput']:,.0f} had left by the end."
+    ]
+
+    waits = [
+        (means[stage["wait"]], name, stage)
+        for name, stage in STAGES.items()
+        if means[stage["wait"]] > WAIT_LIMIT_MINS
+    ]
+    if waits:
+        wait, name, stage = max(waits, key=lambda w: w[0])
+        sentences.append(
+            f"The longest queue was for **{name}**: patients waited "
+            f"{format_minutes(wait)} on average. "
+            f"Try adding a {stage['resource']}."
+        )
+
+    # Only suggest closing something if there is more than one of it
+    quiet = [
+        (means[stage["util"]], stage)
+        for stage in STAGES.values()
+        if means[stage["util"]] < UTIL_IDEAL_RANGE[0]
+        and room_counts[stage["slider"]] > 1
+    ]
+    if quiet:
+        util, stage = min(quiet, key=lambda q: q[0])
+        sentences.append(
+            f"The {stage['resource']}s were only {util:.0%} busy - "
+            "could you manage with one fewer?"
+        )
+
+    if not waits and not quiet:
+        sentences.append("Nothing is queueing for long and nothing is sitting idle.")
+
+    return " ".join(sentences)
 
 
 def metric_with_delta(

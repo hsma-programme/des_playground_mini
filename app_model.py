@@ -15,8 +15,13 @@ import plotly.graph_objects as go
 import streamlit as st
 import numpy as np
 from helper_functions import (
+    UTIL_LABELS,
+    WAIT_LABELS,
     add_logo,
+    add_util_bands,
+    add_wait_band,
     center_running,
+    describe_results,
     metric_with_delta,
     render_looping_plotly_animation,
     summarise_results,
@@ -209,6 +214,11 @@ with st.sidebar:
             1000,
             step=1,
             value=42,
+            help=(
+                "Computers make 'random' numbers by following a recipe that starts "
+                "from a number called a seed. The same seed gives exactly the same "
+                "results every time - change it to see a different roll of the dice."
+            ),
         )
 
         n_reps = st.slider(
@@ -217,6 +227,11 @@ with st.sidebar:
             10,
             step=1,
             value=3,
+            help=(
+                "Patients arrive at random, so every run turns out a little "
+                "different. Running the simulation several times shows how much of "
+                "what you see is just chance. The animation only shows the first run."
+            ),
         )
 
         run_time_days = st.slider(
@@ -225,6 +240,7 @@ with st.sidebar:
             30,
             step=1,
             value=5,
+            help="How long each run lasts. Longer runs give steadier results but take longer to compute.",
         )
 
 with tab1:
@@ -419,6 +435,21 @@ with tab1:
         st.caption(
             f"Simulated {n_reps * run_time_days} days of emergency department activity "
             f"({summary['arrivals']:,} patient arrivals) in {sim_seconds:.1f} seconds."
+        )
+
+        st.markdown(
+            describe_results(
+                results,
+                room_counts={
+                    "n_triage": n_triage,
+                    "n_reg": n_reg,
+                    "n_exam": n_exam,
+                    "n_cubicles_1": n_cubicles_1,
+                    "n_trauma": n_trauma,
+                    "n_cubicles_2": n_cubicles_2,
+                },
+                days=run_time_days,
+            )
         )
 
         n_in_range = summary["util_in_range"] + summary["wait_in_range"]
@@ -688,22 +719,7 @@ with tab1:
                     """
                 )
                 util_fig_simple = go.Figure()
-                # Add optimum range
-                util_fig_simple.add_hrect(
-                    y0=0.65, y1=0.85, fillcolor="#5DFDA0", opacity=0.25, line_width=0
-                )
-                # Add extreme range (above)
-                util_fig_simple.add_hrect(
-                    y0=0.85, y1=1, fillcolor="#D45E5E", opacity=0.25, line_width=0
-                )
-                # Add suboptimum range (below)
-                util_fig_simple.add_hrect(
-                    y0=0.4, y1=0.65, fillcolor="#FDD049", opacity=0.25, line_width=0
-                )
-                # Add extreme range (below)
-                util_fig_simple.add_hrect(
-                    y0=0, y1=0.4, fillcolor="#D45E5E", opacity=0.25, line_width=0
-                )
+                add_util_bands(util_fig_simple, "h")
 
                 util_fig_simple.add_bar(
                     x=results.mean().filter(like="util").index.tolist(),
@@ -723,14 +739,7 @@ with tab1:
                 )
                 # util_fig_simple.data = util_fig_simple.data[::-1]
                 util_fig_simple.update_xaxes(
-                    labelalias={
-                        "01b_triage_util": "Triage<br>Bays",
-                        "02b_registration_util": "Registration<br>Cubicles",
-                        "03b_examination_util": "Examination<br>Bays",
-                        "04b_treatment_util(non_trauma)": "Treatment<br>Bays<br>(non-trauma)",
-                        "06b_trauma_util": "Stabilisation<br>Bays",
-                        "07b_treatment_util(trauma)": "Treatment<br>Bays<br>(trauma)",
-                    },
+                    labelalias=UTIL_LABELS,
                     tickangle=0,
                 )
                 st.plotly_chart(util_fig_simple, width="stretch")
@@ -747,9 +756,7 @@ with tab1:
                 )
 
                 wait_fig_simple = go.Figure()
-                wait_fig_simple.add_hrect(
-                    y0=0, y1=60 * 2, fillcolor="#5DFDA0", opacity=0.3, line_width=0
-                )
+                add_wait_band(wait_fig_simple, "h")
 
                 wait_fig_simple.add_bar(
                     x=results.mean().filter(like="wait").index.tolist(),
@@ -757,14 +764,7 @@ with tab1:
                 )
 
                 wait_fig_simple.update_xaxes(
-                    labelalias={
-                        "01a_triage_wait": "Triage",
-                        "02a_registration_wait": "Registration",
-                        "03a_examination_wait": "Examination",
-                        "04a_treatment_wait(non_trauma)": "Treatment<br>(non-trauma)",
-                        "06a_trauma_wait": "Stabilisation",
-                        "07a_treatment_wait(trauma)": "Treatment<br>(trauma)",
-                    },
+                    labelalias=WAIT_LABELS,
                     tickangle=0,
                 )
                 # wait_fig_simple.data = wait_fig_simple.data[::-1]
@@ -820,31 +820,10 @@ with tab1:
                     range_x=[0, 1],
                 )
 
-                utilisation_boxplot.add_vrect(
-                    x0=0.65, x1=0.85, fillcolor="#5DFDA0", opacity=0.25, line_width=0
-                )
-                # Add extreme range (above)
-                utilisation_boxplot.add_vrect(
-                    x0=0.85, x1=1, fillcolor="#D45E5E", opacity=0.25, line_width=0
-                )
-                # Add suboptimum range (below)
-                utilisation_boxplot.add_vrect(
-                    x0=0.4, x1=0.65, fillcolor="#FDD049", opacity=0.25, line_width=0
-                )
-                # Add extreme range (below)
-                utilisation_boxplot.add_vrect(
-                    x0=0, x1=0.4, fillcolor="#D45E5E", opacity=0.25, line_width=0
-                )
+                add_util_bands(utilisation_boxplot, "v")
 
                 utilisation_boxplot.update_yaxes(
-                    labelalias={
-                        "01b_triage_util": "Triage<br>Bays",
-                        "02b_registration_util": "Registration<br>Cubicles",
-                        "03b_examination_util": "Examination<br>Bays",
-                        "04b_treatment_util(non_trauma)": "Treatment<br>Bays<br>(non-trauma)",
-                        "06b_trauma_util": "Stabilisation<br>Bays",
-                        "07b_treatment_util(trauma)": "Treatment<br>Bays<br>(trauma)",
-                    },
+                    labelalias=UTIL_LABELS,
                     tickangle=0,
                     title_text="",
                 )
@@ -892,21 +871,12 @@ with tab1:
                 )
 
                 wait_boxplot.update_yaxes(
-                    labelalias={
-                        "01a_triage_wait": "Triage",
-                        "02a_registration_wait": "Registration",
-                        "03a_examination_wait": "Examination",
-                        "04a_treatment_wait(non_trauma)": "Treatment<br>(non-trauma)",
-                        "06a_trauma_wait": "Stabilisation",
-                        "07a_treatment_wait(trauma)": "Treatment<br>(trauma)",
-                    },
+                    labelalias=WAIT_LABELS,
                     tickangle=0,
                     title_text="",
                 )
 
-                wait_boxplot.add_vrect(
-                    x0=0, x1=60 * 2, fillcolor="#5DFDA0", opacity=0.3, line_width=0
-                )
+                add_wait_band(wait_boxplot, "v")
 
                 wait_boxplot.update_xaxes(
                     title_text="Wait for Treatment Stage (Minutes)"
@@ -989,31 +959,10 @@ with tab2:
                     height=800,
                 )
 
-                all_run_util_bar.add_vrect(
-                    x0=0.65, x1=0.85, fillcolor="#5DFDA0", opacity=0.25, line_width=0
-                )
-                # Add extreme range (above)
-                all_run_util_bar.add_vrect(
-                    x0=0.85, x1=1, fillcolor="#D45E5E", opacity=0.25, line_width=0
-                )
-                # Add suboptimum range (below)
-                all_run_util_bar.add_vrect(
-                    x0=0.4, x1=0.65, fillcolor="#FDD049", opacity=0.25, line_width=0
-                )
-                # Add extreme range (below)
-                all_run_util_bar.add_vrect(
-                    x0=0, x1=0.4, fillcolor="#D45E5E", opacity=0.25, line_width=0
-                )
+                add_util_bands(all_run_util_bar, "v")
 
                 all_run_util_bar.update_yaxes(
-                    labelalias={
-                        "01b_triage_util": "Triage<br>Bays",
-                        "02b_registration_util": "Registration<br>Cubicles",
-                        "03b_examination_util": "Examination<br>Bays",
-                        "04b_treatment_util(non_trauma)": "Treatment<br>Bays<br>(non-trauma)",
-                        "06b_trauma_util": "Stabilisation<br>Bays",
-                        "07b_treatment_util(trauma)": "Treatment<br>Bays<br>(trauma)",
-                    },
+                    labelalias=UTIL_LABELS,
                     tickangle=0,
                     title_text="",
                 )
@@ -1045,14 +994,7 @@ with tab2:
                 )
 
                 all_run_wait_bar.update_yaxes(
-                    labelalias={
-                        "01a_triage_wait": "Triage",
-                        "02a_registration_wait": "Registration",
-                        "03a_examination_wait": "Examination",
-                        "04a_treatment_wait(non_trauma)": "Treatment<br>(non-trauma)",
-                        "06a_trauma_wait": "Stabilisation",
-                        "07a_treatment_wait(trauma)": "Treatment<br>(trauma)",
-                    },
+                    labelalias=WAIT_LABELS,
                     tickangle=0,
                     title_text="",
                 )
@@ -1061,9 +1003,7 @@ with tab2:
 
                 all_run_wait_bar.update_layout(legend_title_text="Scenario")
 
-                all_run_wait_bar.add_vrect(
-                    x0=0, x1=60 * 2, fillcolor="#5DFDA0", opacity=0.3, line_width=0
-                )
+                add_wait_band(all_run_wait_bar, "v")
 
                 st.plotly_chart(all_run_wait_bar, width="stretch")
 
@@ -1089,31 +1029,10 @@ with tab2:
                     height=800,
                 )
 
-                all_run_util_box.add_vrect(
-                    x0=0.65, x1=0.85, fillcolor="#5DFDA0", opacity=0.25, line_width=0
-                )
-                # Add extreme range (above)
-                all_run_util_box.add_vrect(
-                    x0=0.85, x1=1, fillcolor="#D45E5E", opacity=0.25, line_width=0
-                )
-                # Add suboptimum range (below)
-                all_run_util_box.add_vrect(
-                    x0=0.4, x1=0.65, fillcolor="#FDD049", opacity=0.25, line_width=0
-                )
-                # Add extreme range (below)
-                all_run_util_box.add_vrect(
-                    x0=0, x1=0.4, fillcolor="#D45E5E", opacity=0.25, line_width=0
-                )
+                add_util_bands(all_run_util_box, "v")
 
                 all_run_util_box.update_yaxes(
-                    labelalias={
-                        "01b_triage_util": "Triage<br>Bays",
-                        "02b_registration_util": "Registration<br>Cubicles",
-                        "03b_examination_util": "Examination<br>Bays",
-                        "04b_treatment_util(non_trauma)": "Treatment<br>Bays<br>(non-trauma)",
-                        "06b_trauma_util": "Stabilisation<br>Bays",
-                        "07b_treatment_util(trauma)": "Treatment<br>Bays<br>(trauma)",
-                    },
+                    labelalias=UTIL_LABELS,
                     tickangle=0,
                     title_text="",
                 )
@@ -1145,22 +1064,13 @@ with tab2:
                 )
 
                 all_run_wait_box.update_yaxes(
-                    labelalias={
-                        "01a_triage_wait": "Triage",
-                        "02a_registration_wait": "Registration",
-                        "03a_examination_wait": "Examination",
-                        "04a_treatment_wait(non_trauma)": "Treatment<br>(non-trauma)",
-                        "06a_trauma_wait": "Stabilisation",
-                        "07a_treatment_wait(trauma)": "Treatment<br>(trauma)",
-                    },
+                    labelalias=WAIT_LABELS,
                     tickangle=0,
                     title_text="",
                 )
                 all_run_wait_box.update_xaxes(title_text="Wait for Stage (minutes)")
 
-                all_run_wait_box.add_vrect(
-                    x0=0, x1=60 * 2, fillcolor="#5DFDA0", opacity=0.3, line_width=0
-                )
+                add_wait_band(all_run_wait_box, "v")
 
                 all_run_wait_box.update_layout(legend_title_text="Scenario")
 
@@ -1274,7 +1184,31 @@ with tab2:
             gc.collect()
     else:
         st.markdown(
-            "No scenarios yet run. Go to the 'Playground' tab and click 'Run simulation'."
+            "No scenarios have been run yet. Go to the 'Playground' tab and run the simulation."
         )
+
+#################################################
+# Take-away
+#################################################
+st.divider()
+
+footer_qr, footer_text = st.columns([1, 5], vertical_alignment="center")
+
+footer_qr.image("resources/hsma_qr.png", width=130)
+
+footer_text.markdown(
+    """
+    **Want to learn how to build models like this?**
+
+    HSMA trains people working in health, social care and policing in simulation modelling
+    and data science. Scan the code or visit the
+    [HSMA website](https://hsma.co.uk) to find out more, or
+    [explore the code for this app](https://github.com/hsma-programme/des_playground_mini).
+    """
+)
+footer_text.caption(
+    "Based on the open treatment centre simulation model by Monks T, Harper A, "
+    "Anagnostou A, Allen M, Taylor S (2022)."
+)
 
 gc.collect()
