@@ -232,7 +232,8 @@ with tab1:
             my_bar.progress(80, text="Creating Animations...")
 
             single_log = trial_log.to_dataframe()
-            single_log = single_log[single_log["run_number"] == 1]
+            # run_number starts at 0, so this is the first replication
+            single_log = single_log[single_log["run_number"] == 0]
 
             animation_dfs_log = reshape_for_animations(
                 event_log=single_log,
@@ -363,6 +364,9 @@ with tab1:
                 override_x_max=700,
                 override_y_max=675,
                 entity_icon_size=17,
+                # vidigi 2.0.0 sizes the bay markers by this (default 24); they
+                # were a fixed 15 before
+                resource_icon_size=15,
                 display_stage_labels=False,
                 setup_mode=False,
                 time_display_units="dhm",
