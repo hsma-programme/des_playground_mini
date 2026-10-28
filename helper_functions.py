@@ -81,8 +81,8 @@ def render_looping_plotly_animation(
 
     Plotly's own ``auto_play=True`` starts the animation once ``newPlot``
     resolves. A small ``post_script`` then re-triggers the animation each time
-    it finishes (with a short pause on the final frame), giving a continuous
-    loop. The play/pause buttons and slider baked into ``fig`` still work.
+    it reaches the final frame (with a short pause there), giving a continuous
+    loop. Jumping to another frame with the slider does not restart it. The play/pause buttons and slider baked into ``fig`` still work.
 
     ``st.plotly_chart`` normally hands the figure to Streamlit's frontend, which
     forces a transparent paper/plot background (so the page colour shows through)
@@ -155,9 +155,16 @@ def render_looping_plotly_animation(
     loop_script = """
     var gd = document.getElementById('{plot_id}');
     var _loopOpts = %s;
+    var _lastFrame = null;
     function _vidigiLoop() { Plotly.animate(gd, null, _loopOpts); }
+    gd.on('plotly_animatingframe', function (e) { _lastFrame = e.name; });
     gd.on('plotly_animated', function () {
-        setTimeout(_vidigiLoop, %d);
+        // Dragging the slider also fires plotly_animated (a one-frame
+        // animation), so only restart when the animation has reached the end.
+        var frames = gd._transitionData._frames;
+        if (frames.length && _lastFrame === frames[frames.length - 1].name) {
+            setTimeout(_vidigiLoop, %d);
+        }
     });
     """ % (json.dumps(animation_opts), pause_between_loops_ms)
 
