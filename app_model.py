@@ -152,12 +152,12 @@ with tab1:
 
     if button_run_pressed:
         # add a spinner and then display success box
-        with st.spinner("Simulating the minor injuries unit..."):
-            await asyncio.sleep(0.1)
+        with st.spinner("Simulating the emergency department..."):
+            # await asyncio.sleep(0.1)
 
             my_bar = st.empty()
 
-            my_bar = st.progress(0, text="Simulating the minor injuries unit...")
+            my_bar = st.progress(0, text="Simulating the emergency department...")
 
             # run multiple replications of experment
             detailed_outputs = multiple_replications(
@@ -180,7 +180,7 @@ with tab1:
             results_for_state = results
             original_cols = results_for_state.columns.values
             results_for_state["Triage\nCubicles"] = args.n_triage
-            results_for_state["Registration\nClerks"] = args.n_reg
+            results_for_state["Registration\nCubicles"] = args.n_reg
             results_for_state["Examination\nRooms"] = args.n_exam
             results_for_state["Non-Trauma\nTreatment Cubicles"] = args.n_cubicles_1
             results_for_state["Trauma\nStabilisation Bays"] = args.n_trauma
@@ -200,7 +200,7 @@ with tab1:
             column_order = [
                 "Model Run",
                 "Triage\nCubicles",
-                "Registration\nClerks",
+                "Registration\nCubicles",
                 "Examination\nRooms",
                 "Non-Trauma\nTreatment Cubicles",
                 "Trauma\nStabilisation Bays",
@@ -367,9 +367,7 @@ with tab1:
             del animation_dfs_log
             gc.collect()
 
-            st.plotly_chart(animated_plot)
-
-            # render_looping_plotly_animation(animated_plot, text_color="white")
+            render_looping_plotly_animation(animated_plot, text_color="white")
 
             st.caption("""
                 The animation starts playing automatically and loops continuously, pausing briefly on the final frame before restarting.
@@ -667,9 +665,9 @@ with tab2:
     if len(st.session_state["session_results"]) > 0:
         all_run_results = pd.concat(st.session_state["session_results"])
 
-        st.markdown(
-            "If you would like to clear the simulation history in this tab, refresh the page."
-        )
+        if st.button("Clear scenarios", key="clear_scenarios"):
+            st.session_state["session_results"] = []
+            st.rerun()
 
         st.subheader("Look at Average Results Across Replications")
         # col_a, col_b = st.columns(2)
@@ -682,7 +680,7 @@ with tab2:
             f"Scenario {i}" for i in parameter_scenario_df.columns
         ]
         parameter_scenario_df = parameter_scenario_df[
-            ~parameter_scenario_df["Scenario index"].str.contains("\d", regex=True)
+            ~parameter_scenario_df["Scenario index"].str.contains(r"\d", regex=True)
         ]
 
         st.dataframe(
@@ -712,7 +710,10 @@ with tab2:
                     .median()
                     .T.filter(like="util", axis=0)
                     .reset_index(drop=False)
-                    .melt(id_vars="index", var_name="model_run"),
+                    .melt(id_vars="index", var_name="model_run")
+                    .assign(
+                        model_run=lambda d: "Scenario " + d["model_run"].astype(str)
+                    ),
                     x="value",
                     y="index",
                     barmode="group",
@@ -765,7 +766,10 @@ with tab2:
                     .median()
                     .T.filter(like="wait", axis=0)
                     .reset_index(drop=False)
-                    .melt(id_vars="index", var_name="model_run"),
+                    .melt(id_vars="index", var_name="model_run")
+                    .assign(
+                        model_run=lambda d: "Scenario " + d["model_run"].astype(str)
+                    ),
                     x="value",
                     y="index",
                     barmode="group",
@@ -929,13 +933,13 @@ with tab2:
                     xaxis_tickformat=".0%", legend_title_text="Scenario"
                 )
 
-                all_run_util_bar.update_yaxes(
+                all_results_throughput_box.update_yaxes(
                     title_text="",
                     labelalias={
-                        "perc_throughout": "Throughput (% of arrivals<br>that exit before model end)"
+                        "perc_throughput": "Throughput (% of arrivals<br>that exit before model end)"
                     },
                 )
-                all_run_util_bar.update_xaxes(title_text="% Throughput")
+                all_results_throughput_box.update_xaxes(title_text="% Throughput")
 
                 # Add in a box plot showing waits
                 st.plotly_chart(all_results_throughput_box, width="stretch")
@@ -982,7 +986,7 @@ with tab2:
             ]
             # st.dataframe(output_scenario_df)
             output_scenario_df = output_scenario_df[
-                output_scenario_df["Scenario index"].str.contains("\d", regex=True)
+                output_scenario_df["Scenario index"].str.contains(r"\d", regex=True)
             ]
 
             output_scenario_df["Scenario index"] = output_scenario_df[

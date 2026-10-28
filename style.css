@@ -1,16 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@200&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;600&display=swap');
 
 html, body, st-emotion-cache [class*="css"] {
     font-family: 'Lexend', sans-serif;
     font-size: 18px;
-    font-weight: 200;
+    font-weight: 300;
     color: #091747;
-}
-
-.st-emotion-cache-nahz7x {
-	font-family: "Lexend", sans-serif;
-	font-weight: 300;
 }
 
 h1, h2, h3, h4 {
@@ -19,13 +13,6 @@ h1, h2, h3, h4 {
 
 [data-testid="stSidebarNavItems"] {
 	padding: 6em 0.25rem;
-}
-
-.st-emotion-cache-z5fcl4 {
-	width: 100%;
-	padding: 0.25em 3rem 3rem;
-	min-width: auto;
-	max-width: initial;
 }
 
 h1 {
