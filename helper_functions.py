@@ -201,6 +201,80 @@ def render_looping_plotly_animation(
     components.html(html, height=height, scrolling=True)
 
 
+# Targets used by the playground (and described in its explanatory text)
+UTIL_IDEAL_RANGE = (0.65, 0.85)
+WAIT_LIMIT_MINS = 120
+
+
+def summarise_results(results):
+    """
+    Boil a run's replication results down to the headline numbers.
+
+    Params:
+    ------
+    results: pd.DataFrame
+        One row per replication, as returned in ``summary_df`` by
+        ``multiple_replications`` (columns containing "util", "wait",
+        "00_arrivals" and "09_throughput").
+
+    Returns:
+    -------
+    dict
+        Counts of utilisation/wait metrics (averaged across replications) that
+        fall within the ideal range, the longest average wait, the average
+        number of patients seen per replication, and total arrivals.
+    """
+    means = results.mean()
+    util = means.filter(like="util")
+    wait = means.filter(like="wait")
+
+    return {
+        "util_in_range": int(
+            ((util > UTIL_IDEAL_RANGE[0]) & (util < UTIL_IDEAL_RANGE[1])).sum()
+        ),
+        "n_util": len(util),
+        "wait_in_range": int((wait < WAIT_LIMIT_MINS).sum()),
+        "n_wait": len(wait),
+        "longest_wait": wait.max(),
+        "patients_seen": means["09_throughput"],
+        "arrivals": int(results["00_arrivals"].sum()),
+    }
+
+
+def metric_with_delta(
+    col, label, value, current, previous=None, unit="", inverse=False, help=None
+):
+    """
+    Show an ``st.metric`` in ``col`` with its change since the previous run.
+
+    Params:
+    ------
+    col: streamlit container
+        Where to draw the metric (e.g. a column).
+    label, value: str
+        Passed to ``st.metric``.
+    current, previous: float
+        The numbers to compare. If ``previous`` is None (first run) no delta is
+        shown.
+    unit: str
+        Appended to the delta, e.g. " min".
+    inverse: bool
+        True where lower is better, so a drop is shown in green.
+    help: str or None
+        Tooltip text.
+    """
+    delta, colour = None, "normal"
+    if previous is not None:
+        diff = current - previous
+        if round(diff) == 0:
+            delta, colour = "no change", "off"
+        else:
+            delta = f"{diff:+,.0f}{unit}"
+            colour = "inverse" if inverse else "normal"
+
+    col.metric(label, value, delta=delta, delta_color=colour, help=help)
+
+
 def center_running():
     """
     Have the "running man" animation in the center of the screen instead of the top right corner.

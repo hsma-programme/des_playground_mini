@@ -7,6 +7,7 @@ Allows users to interact with an increasingly complex treatment simulation
 """
 
 import gc
+import time
 import asyncio
 import pandas as pd
 import plotly.express as px
@@ -16,7 +17,9 @@ import numpy as np
 from helper_functions import (
     add_logo,
     center_running,
+    metric_with_delta,
     render_looping_plotly_animation,
+    summarise_results,
 )
 from model_classes import Scenario, multiple_replications
 from vidigi.prep import (
@@ -39,6 +42,83 @@ st.set_page_config(
 # Initialise session state
 if "session_results" not in st.session_state:
     st.session_state["session_results"] = []
+
+# Fewest rooms used so far in a run where every metric was in the green
+if "best_rooms" not in st.session_state:
+    st.session_state["best_rooms"] = None
+
+# Starting values for the sidebar sliders (set once, so presets can overwrite them)
+SLIDER_DEFAULTS = dict(
+    n_triage=4,
+    prob_trauma=0.3,
+    n_trauma=6,
+    n_cubicles_2=6,
+    n_reg=3,
+    n_exam=3,
+    n_cubicles_1=2,
+    non_trauma_treat_p=0.7,
+)
+for slider_key, slider_value in SLIDER_DEFAULTS.items():
+    st.session_state.setdefault(slider_key, slider_value)
+
+# Slider values for the one-click presets. The keys are the sidebar slider keys.
+PRESETS = {
+    "🏥 Current setup": dict(SLIDER_DEFAULTS),
+    "😰 Understaffed": dict(
+        n_triage=1,
+        n_reg=1,
+        n_exam=1,
+        n_trauma=1,
+        n_cubicles_1=1,
+        n_cubicles_2=1,
+        prob_trauma=0.3,
+        non_trauma_treat_p=0.7,
+    ),
+    "⚖️ Balanced": dict(
+        n_triage=2,
+        n_reg=2,
+        n_exam=3,
+        n_trauma=7,
+        n_cubicles_1=2,
+        n_cubicles_2=3,
+        prob_trauma=0.3,
+        non_trauma_treat_p=0.7,
+    ),
+    "💸 Throw money at it": dict(
+        n_triage=10,
+        n_reg=10,
+        n_exam=10,
+        n_trauma=10,
+        n_cubicles_1=10,
+        n_cubicles_2=10,
+        prob_trauma=0.3,
+        non_trauma_treat_p=0.7,
+    ),
+}
+
+
+def apply_preset(name):
+    """Button callback: set the sidebar sliders, then ask for a run."""
+    for slider_key, slider_value in PRESETS[name].items():
+        st.session_state[slider_key] = slider_value
+    st.session_state["run_requested"] = True
+
+
+def clear_scenarios():
+    """Button callback: forget the scenarios run so far (and the best score)."""
+    st.session_state["session_results"] = []
+    st.session_state["best_rooms"] = None
+
+
+def challenge_message():
+    message = (
+        "🏆 **Your challenge:** get every utilisation and wait metric into the "
+        "green, using as few rooms as you can."
+    )
+    if st.session_state["best_rooms"] is not None:
+        message += f" Best so far: **{st.session_state['best_rooms']} rooms**."
+    return message
+
 
 add_logo()
 
@@ -63,52 +143,59 @@ with st.sidebar:
     total_rooms_in_use_container = st.empty()
 
     st.subheader("Triage")
-    n_triage = st.slider("🚦 Number of Triage Cubicles", 1, 10, step=1, value=4)
-    prob_trauma = st.slider(
-        "🚑 Probability that a new arrival is a trauma patient",
-        0.0,
-        1.0,
-        step=0.01,
-        value=0.3,
-        help="""0 = No arrivals are trauma patients\n\n1 = All arrivals are trauma patients""",
-    )
+    n_triage = st.slider("🚦 Number of Triage Cubicles", 1, 10, step=1, key="n_triage")
 
     st.subheader("Trauma Pathway")
     n_trauma = st.slider(
-        "🛏️ Number of Trauma Bays for Stabilisation", 1, 10, step=1, value=6
+        "🛏️ Number of Trauma Bays for Stabilisation", 1, 10, step=1, key="n_trauma"
     )
     n_cubicles_2 = st.slider(
-        "🤕 Number of Treatment Cubicles for Trauma", 1, 10, step=1, value=6
+        "🤕 Trauma Treatment Cubicles", 1, 10, step=1, key="n_cubicles_2"
     )
 
     st.subheader("Non-Trauma Pathway")
-    n_reg = st.slider("📝 Number of Registration Cubicles", 1, 10, step=1, value=3)
+    n_reg = st.slider("📝 Number of Registration Cubicles", 1, 10, step=1, key="n_reg")
     n_exam = st.slider(
         "🔎 Number of Examination Rooms for non-trauma patients",
         1,
         10,
         step=1,
-        value=3,
+        key="n_exam",
+    )
+    n_cubicles_1 = st.slider(
+        "💊 Non-Trauma Treatment Cubicles",
+        1,
+        10,
+        step=1,
+        key="n_cubicles_1",
     )
 
-    st.subheader("Non-Trauma Treatment")
-    n_cubicles_1 = st.slider(
-        "💊 Number of Treatment Cubicles for Non-Trauma", 1, 10, step=1, value=2
+    st.divider()
+
+    st.subheader("Patient Mix")
+    prob_trauma = st.slider(
+        "🚑 Probability that a new arrival is a trauma patient",
+        0.0,
+        1.0,
+        step=0.01,
+        help="""0 = No arrivals are trauma patients\n\n1 = All arrivals are trauma patients""",
+        key="prob_trauma",
     )
+
     non_trauma_treat_p = st.slider(
         "🤒 Probability that a non-trauma patient will need treatment",
         0.0,
         1.0,
         step=0.01,
-        value=0.7,
         help="""0 = No non-trauma patients need treatment\n\n1 = All non-trauma patients need treatment""",
+        key="non_trauma_treat_p",
     )
+
+    total_rooms = n_cubicles_1 + n_cubicles_2 + n_exam + n_trauma + n_triage + n_reg
 
     with total_rooms_in_use_container:
         with st.container(border=True):
-            st.caption(
-                f"Total rooms in use is {n_cubicles_1 + n_cubicles_2 + n_exam + n_trauma + n_triage + n_reg}"
-            )
+            st.caption(f"Total rooms in use is {total_rooms}")
 
     with st.expander("Advanced Parameters"):
         seed = st.slider(
@@ -148,11 +235,41 @@ with tab1:
         prob_trauma=prob_trauma,
     )
 
-    # A user must press a streamlit button to run the model
-    button_run_pressed = st.button(
-        "Click to run the simulation",
-        key="animate_button",
-        width="stretch",
+    st.markdown(
+        f"""
+        This is a virtual emergency department, and **you're in charge of staffing it**.
+        Choose how many rooms of each type to open in the sidebar, hit run, and watch
+        {run_time_days} days of patients flow through in seconds.
+
+        The app uses *discrete event simulation* - a technique that allows us to try out ideas
+        on a computer before testing them on real patients.
+        """
+    )
+
+    challenge_box = st.empty()
+
+    st.caption(
+        "Not sure where to start? Try a preset - it sets the sliders and runs for you:"
+    )
+    preset_cols = st.columns(len(PRESETS))
+    for preset_col, preset_name in zip(preset_cols, PRESETS):
+        preset_col.button(
+            preset_name,
+            key=f"preset_{preset_name}",
+            on_click=apply_preset,
+            args=(preset_name,),
+            width="stretch",
+        )
+
+    # A user must press a streamlit button (or a preset) to run the model
+    run_requested = st.session_state.pop("run_requested", False)
+    button_run_pressed = (
+        st.button(
+            "Click to run the simulation",
+            key="animate_button",
+            width="stretch",
+        )
+        or run_requested
     )
 
     if button_run_pressed:
@@ -165,9 +282,11 @@ with tab1:
             my_bar = st.progress(0, text="Simulating the emergency department...")
 
             # run multiple replications of experment
+            sim_start = time.perf_counter()
             detailed_outputs = multiple_replications(
                 args, n_reps=n_reps, rc_period=run_time_days * 60 * 24, summary=False
             )
+            sim_seconds = time.perf_counter() - sim_start
 
             my_bar.progress(40, text="Collating Simulation Outputs...")
 
@@ -219,6 +338,10 @@ with tab1:
 
             current_state = st.session_state["session_results"]
 
+            previous_summary = (
+                summarise_results(current_state[-1]) if current_state else None
+            )
+
             current_state.append(results_for_state)
 
             del results_for_state
@@ -246,11 +369,76 @@ with tab1:
 
         gc.collect()
 
-        tab_playground_results_1, tab_playground_results_2, tab_playground_results_3 = (
-            st.tabs(["Animated Log", "Simple Graphs", "Advanced Graphs"])
+        summary = summarise_results(results)
+
+        def previous_value(key):
+            return previous_summary[key] if previous_summary else None
+
+        col_seen, col_util, col_wait, col_longest = st.columns(4)
+
+        metric_with_delta(
+            col_seen,
+            ":hospital: **Patients seen**",
+            f"{summary['patients_seen']:,.0f}",
+            summary["patients_seen"],
+            previous_value("patients_seen"),
+            help="Average number of patients who got through the whole process in each run.",
+        )
+        metric_with_delta(
+            col_util,
+            ":bed: **Utilisation in ideal range**",
+            f"{summary['util_in_range']} of {summary['n_util']}",
+            summary["util_in_range"],
+            previous_value("util_in_range"),
+            help="How many resources were busy 65% to 85% of the time, on average.",
+        )
+        metric_with_delta(
+            col_wait,
+            ":clock2: **Waits under 2 hours**",
+            f"{summary['wait_in_range']} of {summary['n_wait']}",
+            summary["wait_in_range"],
+            previous_value("wait_in_range"),
+            help="How many stages kept the average wait under 120 minutes.",
+        )
+        metric_with_delta(
+            col_longest,
+            ":stopwatch: **Longest average wait**",
+            f"{summary['longest_wait']:,.0f} min",
+            summary["longest_wait"],
+            previous_value("longest_wait"),
+            unit=" min",
+            inverse=True,
+            help="The worst average wait at any stage of the process.",
         )
 
-        with tab_playground_results_1:
+        st.caption(
+            f"Simulated {n_reps * run_time_days} days of emergency department activity "
+            f"({summary['arrivals']:,} patient arrivals) in {sim_seconds:.1f} seconds."
+        )
+
+        n_in_range = summary["util_in_range"] + summary["wait_in_range"]
+        n_metrics = summary["n_util"] + summary["n_wait"]
+
+        if n_in_range == n_metrics:
+            st.balloons()
+            best_rooms = st.session_state["best_rooms"]
+            if best_rooms is None or total_rooms < best_rooms:
+                st.session_state["best_rooms"] = total_rooms
+                st.success(
+                    f"🎉 Everything is in the green with {total_rooms} rooms - a new best!"
+                )
+            else:
+                st.success(
+                    f"Everything is in the green with {total_rooms} rooms. "
+                    f"Your best is {best_rooms} - can you do it with fewer?"
+                )
+        else:
+            st.info(
+                f"{n_in_range} of {n_metrics} metrics are in the green. "
+                "Change some sliders and run it again!"
+            )
+
+        with st.container():
             event_position_df = pd.DataFrame(
                 [
                     {
@@ -474,23 +662,14 @@ with tab1:
             #     mime="text/html",
             # )
 
-        with tab_playground_results_2:
-            in_range_util = sum(
-                (results.mean().filter(like="util") < 0.85)
-                & (results.mean().filter(like="util") > 0.65)
-            )
-            in_range_wait = sum((results.mean().filter(like="wait") < 120))
+        tab_playground_results_2, tab_playground_results_3 = st.tabs(
+            ["Simple Graphs", "Advanced Graphs"]
+        )
 
+        with tab_playground_results_2:
             col_res_a, col_res_b = st.columns([1, 1])
 
             with col_res_a:
-                st.metric(
-                    label=":bed: **Utilisation Metrics in Ideal Range**",
-                    value="{} of {}".format(
-                        in_range_util, len(results.mean().filter(like="util"))
-                    ),
-                )
-
                 # util_fig_simple = px.bar(results.mean().filter(like="util"), opacity=0.5)
                 st.markdown(
                     """
@@ -552,14 +731,6 @@ with tab1:
                 st.plotly_chart(util_fig_simple, width="stretch")
 
             with col_res_b:
-                # util_fig_simple = px.bar(results.mean().filter(like="wait"), opacity=0.5)
-                st.metric(
-                    label=":clock2: **Wait Metrics in Ideal Range**",
-                    value="{} of {}".format(
-                        in_range_wait, len(results.mean().filter(like="wait"))
-                    ),
-                )
-
                 st.markdown(
                     """
                     The emergency department wants to ensure people wait no longer than 2 hours (120 minutes) at any point in the process.
@@ -749,6 +920,8 @@ with tab1:
                     .T.rename_axis("Metric", axis=0)
                 )
 
+    challenge_box.info(challenge_message())
+
 #################################################
 # Create area for exploring all session results
 #################################################
@@ -756,9 +929,7 @@ with tab2:
     if len(st.session_state["session_results"]) > 0:
         all_run_results = pd.concat(st.session_state["session_results"])
 
-        if st.button("Clear scenarios", key="clear_scenarios"):
-            st.session_state["session_results"] = []
-            st.rerun()
+        st.button("Clear scenarios", key="clear_scenarios", on_click=clear_scenarios)
 
         st.subheader("Look at Average Results Across Replications")
         # col_a, col_b = st.columns(2)
