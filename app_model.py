@@ -153,18 +153,38 @@ with st.sidebar:
     total_rooms_in_use_container = st.empty()
 
     st.subheader("Triage")
-    n_triage = st.slider("🚦 Number of Triage Cubicles", 1, SLIDER_MAX["n_triage"], step=1, key="n_triage")
+    n_triage = st.slider(
+        "🚦 Number of Triage Cubicles",
+        1,
+        SLIDER_MAX["n_triage"],
+        step=1,
+        key="n_triage",
+    )
 
     st.subheader("Trauma Pathway")
     n_trauma = st.slider(
-        "🛏️ Number of Trauma Bays for Stabilisation", 1, SLIDER_MAX["n_trauma"], step=1, key="n_trauma"
+        "🛏️ Number of Trauma Bays for Stabilisation",
+        1,
+        SLIDER_MAX["n_trauma"],
+        step=1,
+        key="n_trauma",
     )
     n_cubicles_2 = st.slider(
-        "🤕 Trauma Treatment Cubicles", 1, SLIDER_MAX["n_cubicles_2"], step=1, key="n_cubicles_2"
+        "🤕 Trauma Treatment Cubicles",
+        1,
+        SLIDER_MAX["n_cubicles_2"],
+        step=1,
+        key="n_cubicles_2",
     )
 
     st.subheader("Non-Trauma Pathway")
-    n_reg = st.slider("📝 Number of Registration Cubicles", 1, SLIDER_MAX["n_reg"], step=1, key="n_reg")
+    n_reg = st.slider(
+        "📝 Number of Registration Cubicles",
+        1,
+        SLIDER_MAX["n_reg"],
+        step=1,
+        key="n_reg",
+    )
     n_exam = st.slider(
         "🔎 Number of Examination Rooms for non-trauma patients",
         1,
@@ -239,7 +259,7 @@ with st.sidebar:
             1,
             30,
             step=1,
-            value=5,
+            value=4,
             help="How long each run lasts. Longer runs give steadier results but take longer to compute.",
         )
 
@@ -382,8 +402,8 @@ with tab1:
             animation_dfs_log = reshape_for_animations(
                 event_log=single_log,
                 step_snapshot_max=30,
-                every_x_time_units=5,
-                limit_duration=60 * 24 * 5,
+                every_x_time_units=10,
+                limit_duration=min(run_time_days * 60 * 24, 60 * 24 * 5),
             )
 
             my_bar = st.empty()
@@ -583,7 +603,7 @@ with tab1:
                 event_position_df=event_position_df,
                 scenario=args,
                 include_play_button=True,
-                plotly_height=950,
+                plotly_height=860,
                 plotly_width=1150,
                 override_x_max=700,
                 override_y_max=675,
@@ -646,7 +666,7 @@ with tab1:
 
             animated_plot = add_subplot_panels(
                 animated_plot,
-                row_heights=[0.75, 0.25],
+                row_heights=[0.82, 0.18],
                 hide_new_panel_axes=False,
             )
 
@@ -656,8 +676,30 @@ with tab1:
 
             animated_plot = add_synchronised_trace(animated_plot, queue_traces)
 
+            # Ticks every 6 hours: day numbers at midnight, times of day between
+            tick_labels = ["6am", "12pm", "6pm"]
+            # The animation covers at most the first 5 days
+            anim_days = min(run_time_days, 5)
+            ticks = [
+                (
+                    d + h / 24,
+                    ("" if d == anim_days else str(d + 1))
+                    if h == 0
+                    else tick_labels[h // 6 - 1],
+                )
+                for d in range(anim_days + 1)
+                for h in (0, 6, 12, 18)
+            ][:-3]
             animated_plot.update_xaxes(
-                range=[0, 5], dtick=1, title_text="Day", row=2, col=1
+                range=[0, anim_days],
+                tickmode="array",
+                tickvals=[t for t, _ in ticks],
+                ticktext=[label for _, label in ticks],
+                tickangle=0,
+                tickfont=dict(size=10),
+                title_text="Day",
+                row=2,
+                col=1,
             )
             animated_plot.update_yaxes(
                 range=[0, queue_sizes.values.max() + 1],
@@ -671,7 +713,7 @@ with tab1:
                     title_text="Patients waiting for:",
                     orientation="h",
                     x=0,
-                    y=0.27,
+                    y=0.20,
                     xanchor="left",
                     yanchor="bottom",
                 ),
