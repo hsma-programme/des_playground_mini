@@ -136,8 +136,10 @@ img.stLogo {
 
 /* ---- Faux navbar: the page tabs are a full-width bar pinned to the top ---- */
 /* This Streamlit renders tabs with react-aria (role="tablist" / data-testid="stTab"),
-	not baseweb, so target those. */
-[role="tablist"] {
+	not baseweb, so target those. Everything here is limited to the top-level tabs
+	(not inside a tab panel), so the nested "Simple graphs" / "Advanced graphs"
+	tabs keep Streamlit's normal look and don't get the bar or the title. */
+[role="tablist"]:not([data-testid="stTabPanel"] *) {
 	position: sticky;
 	top: 0;
 	z-index: 100;
@@ -151,7 +153,7 @@ img.stLogo {
 	gap: 0.75rem;
 }
 /* The app title, at the left of the bar. */
-[role="tablist"]::before {
+[role="tablist"]:not([data-testid="stTabPanel"] *)::before {
 	content: "Simulation Playground";
 	font-family: "HSMA Display", sans-serif;
 	font-size: 2rem;
@@ -159,27 +161,27 @@ img.stLogo {
 	margin-right: 2rem;
 }
 /* Tabs as pills; the selected one is filled. */
-[data-testid="stTab"] {
+[data-testid="stTab"]:not([data-testid="stTabPanel"] *) {
 	padding: 0.4rem 1rem;
 	border-radius: 999px;
 	border: 1px solid transparent;
 	transition: background-color 0.15s;
 }
-[data-testid="stTab"]:hover {
+[data-testid="stTab"]:not([data-testid="stTabPanel"] *):hover {
 	background-color: rgba(255, 255, 255, 0.08);
 }
-[data-testid="stTab"][data-selected="true"] {
+[data-testid="stTab"]:not([data-testid="stTabPanel"] *)[data-selected="true"] {
 	background-color: #1fb1b9;
 }
-[data-testid="stTab"][data-selected="true"] p {
+[data-testid="stTab"]:not([data-testid="stTabPanel"] *)[data-selected="true"] p {
 	color: #ffffff;
 }
 /* Hide the default underline indicator; the filled pill replaces it. */
-.react-aria-SelectionIndicator {
+[role="tablist"]:not([data-testid="stTabPanel"] *) .react-aria-SelectionIndicator {
 	display: none;
 }
-[data-testid="stTab"],
-[data-testid="stTab"] p {
+[data-testid="stTab"]:not([data-testid="stTabPanel"] *),
+[data-testid="stTab"]:not([data-testid="stTabPanel"] *) p {
 	font-family: "HSMA Display", sans-serif !important;
 	font-size: 1.1rem !important;
 	letter-spacing: 0.05em;
