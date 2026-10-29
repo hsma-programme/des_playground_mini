@@ -430,7 +430,7 @@ with st.sidebar:
             1,
             10,
             step=1,
-            value=3,
+            value=5,
             help=(
                 "Patients arrive at random, so every run turns out a little "
                 "different. Running the simulation several times shows how much of "
@@ -465,10 +465,11 @@ with tab1:
         This is a virtual emergency department, and **you're in charge of staffing it**.
 
         Choose how many rooms of each type to open in the sidebar, hit run, and watch
-        {run_time_days} days in seconds.
+        {run_time_days} days in the ED pass in a few minutes.
 
         This uses *discrete event simulation* - a technique that allows us to
         <span style="color:#ffe600;font-weight:700">safely try out ideas on a computer before testing them on real patients</span>.
+        The simulation is repeated {n_reps} times to see how performance might vary in reality.
         """,
         unsafe_allow_html=True,
     )
@@ -476,7 +477,7 @@ with tab1:
     challenge_box = st.empty()
 
     st.caption(
-        "Not sure where to start? Try a preset - it sets the sliders and runs for you:"
+        "Not sure where to start? Try a preset - it sets the sliders and runs the simulation for you."
     )
     preset_cols = st.columns(len(PRESETS))
     for preset_col, preset_name in zip(preset_cols, PRESETS):
@@ -536,15 +537,11 @@ with tab1:
         results_for_state["Non-Trauma\nTreatment Cubicles"] = args.n_cubicles_1
         results_for_state["Trauma\nStabilisation Bays"] = args.n_trauma
         results_for_state["Trauma\nTreatment Cubicles"] = args.n_cubicles_2
-        results_for_state["Probability patient\nis a trauma patient"] = (
-            args.prob_trauma
-        )
+        results_for_state["Probability patient\nis a trauma patient"] = args.prob_trauma
         results_for_state["Probability non-trauma patients\nrequire treatment"] = (
             args.non_trauma_treat_p
         )
-        results_for_state["Model Run"] = (
-            len(st.session_state["session_results"]) + 1
-        )
+        results_for_state["Model Run"] = len(st.session_state["session_results"]) + 1
         results_for_state["Random Seed"] = seed
         results_for_state["Run Length\n(days)"] = run_time_days
         results_for_state["Replications"] = n_reps
@@ -618,7 +615,9 @@ with tab1:
         st.divider()
 
         # Recap of the choice that was run, and whether it was a preset
-        chosen_preset = matching_preset({key: st.session_state[key] for key in SLIDER_DEFAULTS})
+        chosen_preset = matching_preset(
+            {key: st.session_state[key] for key in SLIDER_DEFAULTS}
+        )
         st.markdown(
             f"**Run type:** {f'Preset - {chosen_preset}' if chosen_preset else 'Custom'}"
         )
@@ -681,9 +680,7 @@ with tab1:
 
         run_word = "run" if n_reps == 1 else "runs"
         timing = (
-            f" in {sim_seconds:.1f} seconds"
-            if st.session_state["sim_was_run"]
-            else ""
+            f" in {sim_seconds:.1f} seconds" if st.session_state["sim_was_run"] else ""
         )
         st.caption(
             f"Simulated {n_reps * run_time_days} days of emergency department activity "
