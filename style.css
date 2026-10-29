@@ -208,7 +208,16 @@ img.stLogo {
 	background: transparent;
 	pointer-events: none;
 }
+/* The toolbar box can span the full width of the header, which would swallow
+	clicks meant for the tabs underneath it. Only its own controls take clicks. */
 [data-testid="stToolbar"] {
+	pointer-events: none;
+}
+[data-testid="stToolbar"] button,
+[data-testid="stToolbar"] a,
+[data-testid="stToolbar"] [role="button"],
+[data-testid="stToolbar"] [data-testid="stToolbarActions"],
+[data-testid="stToolbar"] [data-testid="stMainMenu"] {
 	pointer-events: auto;
 }
 
