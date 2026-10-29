@@ -334,6 +334,12 @@ gc.collect()
 tab1, tab2 = st.tabs(["Simulate", "Compare Scenario Outputs"])
 
 with st.sidebar:
+    # NIHR logo, directly under the HSMA logo in the sidebar header
+    st.image(
+        "resources/NIHR_APPLIED_RESEARCH_COLLABORATION_Logo_Horizontal_RGB_WHITE.png",
+        width="stretch",
+    )
+
     # A user must press a streamlit button (or a preset) to run the model
     run_requested = st.session_state.pop("run_requested", False)
     button_run_pressed = (
