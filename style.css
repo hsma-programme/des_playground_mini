@@ -131,11 +131,12 @@ section[data-testid="stSidebar"] hr {
 	position: relative;
 	justify-content: center;
 }
-/* Keep the collapse button out of the flow so the logo stays centred. */
-[data-testid="stSidebarHeader"] [data-testid="stSidebarCollapseButton"] {
-	position: absolute;
-	top: 0.5rem;
-	right: 0.5rem;
+/* The sidebar can't be minimised (it breaks the logo), so hide the collapse
+	button and the re-expand control. */
+[data-testid="stSidebarHeader"] [data-testid="stSidebarCollapseButton"],
+[data-testid="stExpandSidebarButton"],
+[data-testid="stSidebarCollapsedControl"] {
+	display: none;
 }
 /* Page title in the HSMA font. */
 h1 {

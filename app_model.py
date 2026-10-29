@@ -128,7 +128,7 @@ EVENT_POSITION_DF = create_event_position_df(
 st.set_page_config(
     page_title="Simulation Playground",
     layout="wide",
-    initial_sidebar_state=300,
+    initial_sidebar_state="expanded",
 )
 
 # Initialise session state
