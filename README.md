@@ -23,6 +23,46 @@ It is a cut-down version of the HSMA [DES Playground](https://github.com/hsma-pr
 
 Every run in a session is saved as a scenario, labelled with the preset it matches or "Custom". Here you can compare their parameters, utilisation, waits and throughput side by side. Runs with identical settings are not saved twice. The **Clear scenarios** button starts again.
 
+## Notes for facilitators
+
+### Before the session: warm the app up
+
+Open the [app](https://des-playground-mini.streamlit.app/) well before attendees arrive and run one of the presets.
+
+Community Cloud puts apps to sleep after a period with no visitors (currently 12 hours). A sleeping app shows a "wake up" button and takes a minute or two to start again. The first simulation after a restart is also slower than later ones. It is better that you wait through this than a room full of attendees.
+
+As a backup, have a copy running locally on your own laptop (see [Running locally](#running-locally)).
+
+### Concurrent users
+
+Community Cloud has no fixed limit on the number of users. Everyone shares a single copy of the app, though, with limited memory (currently between about 690 MB and 2.7 GB, and Streamlit can change this without notice). Every simulation runs inside that shared copy, so many people running long simulations at the same moment can slow the app down for everyone. In the worst case the app goes over its resource limits and stops responding.
+
+To reduce the risk with a large group:
+
+- **Start everyone on the presets with the default Advanced Parameters.** Results are cached and shared between users, so a run with the same settings as an earlier one is returned straight away and does not repeat the simulation.
+- **Discourage everyone from maxing out the Advanced Parameters at once.** 30 days x 10 replications is a lot more work than the default 4 days x 5 replications.
+- **For big groups, work in pairs or small teams on one device each** rather than one device per person.
+- **If the app falls over,** the app owner can reboot it from **Manage app** on Community Cloud. This clears its memory but disconnects everyone, and their saved scenarios are lost.
+
+### Discussion points
+
+**"Why can't I change the number of rooms during the day?"**
+
+This is likely to come up once people look at the queue chart under the animation. Arrivals follow a strong daily pattern ([data/ed_arrivals.csv](data/ed_arrivals.csv)). Patients arrive from 6am until midnight, with about 2-3 an hour first thing and late at night, a big peak of about 45 an hour at 12-1pm, and a second peak of about 29 an hour at 5-6pm. The room numbers, though, stay the same for the whole run. Any fixed number of rooms is too many overnight and too few at the peaks, so there is a limit to how green you can get.
+
+This is a good opening to talk about how the model could be extended, and about how flexible DES is in general:
+
+- **Shift patterns:** rooms or staff could open and close at set times of day to follow demand. In SimPy this is a small extra process that changes the capacity available at set times.
+- **Staff as well as rooms:** a cubicle is no use without a clinician. The model could treat staff as a separate resource with their own rotas, breaks and skill mix.
+- **Flexible capacity:** staff could move between areas when one queue builds up, or extra capacity could be brought in once a queue passes a threshold.
+- **The general point:** DES can model almost any rule that can be described clearly, such as priorities, rotas, patients giving up and leaving, or diverting patients elsewhere. The limits are usually the data you have to support those rules, and the time needed to build and check them, rather than the method itself. This app deliberately exposes only a handful of settings, to keep it quick to pick up.
+
+**Other questions that may come up**
+
+- **"Why not aim for 100% utilisation?"** Arrivals and treatment times vary, so queues grow very quickly as resources get close to full. Some slack is what keeps waits short. Comparing 😰 Understaffed with 💸 Throw money at it shows both extremes: one has long waits, the other has lots of idle rooms.
+- **"Why do my results change when I change the random number?"** Each seed is a different possible run of the same department. This is why the simulation is repeated several times, and why it's worth looking at the spread across replications in the Advanced Graphs as well as the averages.
+- **"Is the animation showing all the runs?"** No, it only shows the first replication. The charts and summary cover all of them.
+
 ## Running locally
 
 You need Python 3.11 or later (pandas 3 requires it).
