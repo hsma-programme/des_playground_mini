@@ -745,11 +745,11 @@ with tab1:
                 entity_icon_size=14,
                 # vidigi 2.0.0 sizes the bay markers by this (default 24); they
                 # were a fixed 15 before
-                resource_icon_size=15,
+                resource_icon_size=12,
                 display_stage_labels=False,
                 setup_mode=False,
                 time_display_units="dhm",
-                add_background_image="https://raw.githubusercontent.com/hsma-programme/Teaching_DES_Concepts_Streamlit/main/resources/Full%20Model%20Background%20Image%20-%20Horizontal%20Layout.drawio.png",
+                add_background_image="https://raw.githubusercontent.com/hsma-programme/des_playground_mini/main/resources/Full%20Model%20Background%20Image%20-%20Hospital%20Layout.png",
             )
 
             my_bar.progress(80, text="Calculating queue lengths...")
