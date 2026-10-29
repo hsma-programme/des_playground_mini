@@ -194,6 +194,11 @@ PRESETS = {
 }
 
 
+def preset_total_rooms(name):
+    """Total rooms across all room sliders (the SLIDER_MAX keys) for a preset."""
+    return sum(PRESETS[name][slider_key] for slider_key in SLIDER_MAX)
+
+
 def apply_preset(name):
     """Button callback: set the sidebar sliders, then ask for a run."""
     for slider_key, slider_value in PRESETS[name].items():
@@ -482,7 +487,7 @@ with tab1:
     preset_cols = st.columns(len(PRESETS))
     for preset_col, preset_name in zip(preset_cols, PRESETS):
         preset_col.button(
-            preset_name,
+            f"{preset_name} ({preset_total_rooms(preset_name)} rooms)",
             key=f"preset_{preset_name}",
             on_click=apply_preset,
             args=(preset_name,),
