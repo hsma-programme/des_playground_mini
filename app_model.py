@@ -141,6 +141,57 @@ def scenario_label(run_number, params_row):
     return f"Scenario {run_number} (Custom)"
 
 
+SETTING_COLUMNS = list(PARAM_COLUMNS) + [
+    "Random Seed",
+    "Run Length\n(days)",
+    "Replications",
+]
+
+
+def same_settings(row_a, row_b):
+    """True if two runs used identical sliders, seed, run length and replications."""
+    return all(
+        math.isclose(row_a[col], row_b[col], abs_tol=1e-9) for col in SETTING_COLUMNS
+    )
+
+
+@st.cache_resource(max_entries=5, show_spinner=False)
+def run_simulation(
+    seed,
+    n_triage,
+    n_reg,
+    n_exam,
+    n_trauma,
+    n_cubicles_1,
+    n_cubicles_2,
+    non_trauma_treat_p,
+    prob_trauma,
+    n_reps,
+    run_time_days,
+):
+    """Run the model, returning the summary and the first replication's event log.
+
+    Cached on the settings, so asking for the same run again doesn't repeat it.
+    """
+    scenario = Scenario(
+        random_number_set=seed,
+        n_triage=n_triage,
+        n_reg=n_reg,
+        n_exam=n_exam,
+        n_trauma=n_trauma,
+        n_cubicles_1=n_cubicles_1,
+        n_cubicles_2=n_cubicles_2,
+        non_trauma_treat_p=non_trauma_treat_p,
+        prob_trauma=prob_trauma,
+    )
+    detailed_outputs = multiple_replications(
+        scenario, n_reps=n_reps, rc_period=run_time_days * 60 * 24, summary=False
+    )
+    event_log = detailed_outputs["trial_log"].to_dataframe()
+    # run_number starts at 0, so this is the first replication
+    return detailed_outputs["summary_df"], event_log[event_log["run_number"] == 0]
+
+
 def clear_scenarios():
     """Button callback: forget the scenarios run so far (and the best score)."""
     st.session_state["session_results"] = []
@@ -351,19 +402,24 @@ with tab1:
 
             # run multiple replications of experment
             sim_start = time.perf_counter()
-            detailed_outputs = multiple_replications(
-                args, n_reps=n_reps, rc_period=run_time_days * 60 * 24, summary=False
+            # Identical settings are served from the cache rather than rerun
+            results, single_log = run_simulation(
+                seed=seed,
+                n_triage=n_triage,
+                n_reg=n_reg,
+                n_exam=n_exam,
+                n_trauma=n_trauma,
+                n_cubicles_1=n_cubicles_1,
+                n_cubicles_2=n_cubicles_2,
+                non_trauma_treat_p=non_trauma_treat_p,
+                prob_trauma=prob_trauma,
+                n_reps=n_reps,
+                run_time_days=run_time_days,
             )
+            results = results.copy()
             sim_seconds = time.perf_counter() - sim_start
 
             my_bar.progress(40, text="Collating Simulation Outputs...")
-
-            results = detailed_outputs["summary_df"]
-
-            trial_log = detailed_outputs["trial_log"]
-
-            del detailed_outputs
-            gc.collect()
 
             my_bar.progress(60, text="Logging Results...")
 
@@ -387,6 +443,8 @@ with tab1:
                 len(st.session_state["session_results"]) + 1
             )
             results_for_state["Random Seed"] = seed
+            results_for_state["Run Length\n(days)"] = run_time_days
+            results_for_state["Replications"] = n_reps
 
             # Reorder columns
             column_order = [
@@ -400,6 +458,8 @@ with tab1:
                 "Probability patient\nis a trauma patient",
                 "Probability non-trauma patients\nrequire treatment",
                 "Random Seed",
+                "Run Length\n(days)",
+                "Replications",
             ] + list(original_cols)
 
             results_for_state = results_for_state[column_order]
@@ -410,7 +470,18 @@ with tab1:
                 summarise_results(current_state[-1]) if current_state else None
             )
 
-            current_state.append(results_for_state)
+            duplicate_of = next(
+                (
+                    run
+                    for run, rows in pd.concat(current_state).groupby("Model Run")
+                    if same_settings(rows.iloc[0], results_for_state.iloc[0])
+                ),
+                None,
+            ) if current_state else None
+
+            # Identical settings would only add a duplicate column to the comparison
+            if duplicate_of is None:
+                current_state.append(results_for_state)
 
             del results_for_state
             gc.collect()
@@ -422,10 +493,6 @@ with tab1:
 
             my_bar.progress(80, text="Creating Animations...")
 
-            single_log = trial_log.to_dataframe()
-            # run_number starts at 0, so this is the first replication
-            single_log = single_log[single_log["run_number"] == 0]
-
             animation_dfs_log = reshape_for_animations(
                 event_log=single_log,
                 step_snapshot_max=30,
@@ -436,6 +503,14 @@ with tab1:
             my_bar = st.empty()
 
         gc.collect()
+
+        if duplicate_of is not None:
+            st.toast(
+                f"These settings match Scenario {duplicate_of}, so the stored results "
+                "were reused rather than simulated again, and nothing new was added "
+                "to the comparison.",
+                icon="♻️",
+            )
 
         summary = summarise_results(results)
 
