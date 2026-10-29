@@ -198,6 +198,14 @@ def render_looping_plotly_animation(
             1,
         )
 
+    # The iframe spans the full page width, so centre the fixed-width figure in
+    # it (matters on ultrawide monitors, where it would otherwise hug the left).
+    html = html.replace(
+        "</head>",
+        "<style>body{display:flex;justify-content:center;}</style></head>",
+        1,
+    )
+
     # The figure has a fixed pixel width. If the page is narrower than that
     # (narrow window, wide sidebar), shrink the whole figure to fit instead of
     # showing scrollbars, and resize the iframe to match.
