@@ -1,80 +1,79 @@
-This is a Streamlit application designed to walk people new to discrete event simulation through the key concepts.
-It will be used at the open day for the HSMA 6 programme.
+# DES Playground Mini
 
-It will allow them to get comfortable with the idea of
-- sampling from distributions
-- simulation replications
-- arrival generation
-- generating and using resources
-- branching paths
-- optimising systems
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://des-playground-mini.streamlit.app/)
 
-The slides accompanying this session can be viewed [here](https://docs.google.com/presentation/d/16-p7fdw59Q4ewXPv1sLrEajmQIZu6rgMvZQqIRJGjkw/edit?usp=sharing)
+A single-page Streamlit app that puts you in charge of staffing a virtual emergency department. It is a short, hands-on introduction to discrete event simulation (DES): change how many rooms of each type are open, run the simulation, and see how waits and utilisation respond.
 
-A version of the final model can also be loaded in Google Colab.
-<a target="_blank" href="https://colab.research.google.com/github/hsma-programme/Teaching_DES_Concepts_Streamlit/blob/main/nb_4_full_model.ipynb">
-  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+It is a cut-down version of the HSMA [DES Playground](https://github.com/hsma-programme/Teaching_DES_Concepts_Streamlit). The full playground walks through DES concepts one page at a time. This version skips straight to the complete model so it can be picked up in a few minutes, for example at open days and events.
 
-![image](https://github.com/hsma-programme/Teaching_DES_Concepts_Streamlit/assets/29951987/c55e132d-77b6-43f6-bc98-09434b87709b)
+## What the app does
 
-An animated visual representation of the event log has also been generated using Plotly, allowing users to follow individuals through a simulation and quickly see where queues are building up in the system.
+**Simulate tab**
 
-https://github.com/hsma-programme/Teaching_DES_Concepts_Streamlit/assets/29951987/1adc36a0-7bc0-4808-8d71-2d253a855b31
+- Use the sidebar sliders to set the number of triage cubicles, registration cubicles, examination rooms, non-trauma treatment cubicles, trauma stabilisation bays and trauma treatment cubicles. You can also set the share of arrivals who are trauma patients and the share of non-trauma patients who need treatment.
+- Under **Advanced Parameters**, set the random seed, the number of replications (1-10) and the run length (1-30 days).
+- Or press one of the four presets, which set the sliders and run the model in one click: 🏥 Current setup, 😰 Understaffed, ⚖️ Balanced and 💸 Throw money at it.
+- After each run you get:
+  - a results summary with headline metrics, compared with the previous run;
+  - an animated floor plan of the first replication (built with [vidigi](https://github.com/Bergam0t/vidigi)), with queue lengths over time shown underneath;
+  - simple and advanced charts of utilisation and waits across all replications.
+- **The challenge:** get every metric into the green using as few rooms as possible. Green means average utilisation between 65% and 85%, and average waits under 120 minutes. The app keeps track of your best score so far.
 
-Outputs can be compared across multiple scenarios within a single user session.
+**Compare Scenario Outputs tab**
 
-![image](https://github.com/hsma-programme/Teaching_DES_Concepts_Streamlit/assets/29951987/891e02bd-5b0e-4906-af81-c413f26182c3)
+Every run in a session is saved as a scenario, labelled with the preset it matches or "Custom". Here you can compare their parameters, utilisation, waits and throughput side by side. Runs with identical settings are not saved twice. The **Clear scenarios** button starts again.
 
-# What is HSMA?
+## Running locally
 
-HSMA is a course for people in England working in the health, social care and policing organisations. Over 15 months it trains participants in operational research and data science techniques to aid with service development and decision making.
+You need Python 3.11 or later (pandas 3 requires it).
 
-More information about the course can be found [here](https://hsma.co.uk)
+```bash
+pip install -r requirements.txt
+streamlit run streamlit_app.py
+```
 
-All of the course materials are open source - check out [our repositories](https://github.com/hsma-programme)
+Run the command from the repository root, as the app opens `style.css`, the fonts and images in `resources/`, and `data/` using relative paths.
 
-# Instructions to run
-The app has can be accessed via the [Github Pages site](https://hsma-programme.github.io/Teaching_DES_Concepts_Streamlit/)
-Note that the page has been tested and confirmed working in Chrome, Edge and Safari. It does NOT work in Firefox due to issues with initiating the loading of the stlite dependencies.
+## Deployment
 
-Due to changes that have been made to ensure that the app works well when deployed via stlite, it is not possible to clone the repository and run it locally without first removing all instances where the `await` command has been used.
+The app is deployed on [Streamlit Community Cloud](https://des-playground-mini.streamlit.app/) with `streamlit_app.py` as the entry point.
 
-However, it is possible to clone the repository and instead run it using the stlite preview extension for VSCode, which can be downloaded [here](https://marketplace.visualstudio.com/items?itemName=whitphx.vscode-stlite)
-Note that you will need to restart VSCode after installing this extension.
-Use CTRL+SHIFT+P in VSCode to launch the command pallete, then choose "Launch stlite preview".
-You then need to select Introduction.py from the drop-down that appears.
-The app should then launch in a preview pane within vscode, allowing you to make changes without deploying to github.
+### A note on `_ARCHIVE/`
 
-# Model info
+[_ARCHIVE/](_ARCHIVE/) holds an earlier approach that ran the app entirely in the browser with [stlite](https://github.com/whitphx/stlite), packaged with stlitepack:
 
-This model uses a modified version of the open treatment centre simulation model from Monks.T, Harper.A, Anagnoustou. A, Allen.M, Taylor.S. (2022)
+- `pack.py` - the stlitepack script that bundled the app.
+- `docs/index.html` - the stlite page it generated.
 
-[Link to treatment centre simulation repository](https://github.com/TomMonks/treatment-centre-sim/tree/main)
+This code does not work with the app's automatic animation replay, which is why the app moved to Streamlit Community Cloud. It is kept for reference only and is not used by the current app.
 
-All simulation logic uses the Simpy package.
+## Project structure
 
-# Developer info - app design
+| Path | Contents |
+| --- | --- |
+| `streamlit_app.py` | Entry point. Sets up navigation and runs `app_model.py`. |
+| `app_model.py` | The app page: sidebar, presets, challenge, animation, charts and scenario comparison. |
+| `model_classes.py` | The SimPy model: `Scenario`, the trauma and non-trauma pathways, `TreatmentCentreModel` and `multiple_replications`. |
+| `distributions.py` | Sampling distributions used by the model (exponential, lognormal, normal, Bernoulli, uniform). |
+| `helper_functions.py` | Logo, the looping animation player, chart target bands, results summaries and metric cards. |
+| `data/ed_arrivals.csv` | Hourly arrival rates (time-dependent arrival profile). |
+| `style.css`, `.streamlit/config.toml` | Dark theme, fonts and custom styling. |
+| `resources/` | Logos, animation background images and the HSMA Display font. `make_hospital_background.py` regenerates the floor plan background used in the animation. |
 
-This is a multipage streamlit app. The landing page (Introduction.py) is in the root folder, but all subsequent pages are in the 'pages' subfolder.
-HOWEVER - Introduction.py is not referenced directly in the stlite implementation when deployed on Github pages. Instead, code in Introduction.py needs to be manually synced to index.html.
-All other pages will reflect exactly what is in the .py files within the pages subfolder - Introduction.py is the only exception to this rule.
+## Model info
 
-The index.html controls the navigation of the pages within stlite, making the required pages, scripts and other resources available to pyodide by temporarily mounting them on a virtual filesystem on page load.
+The model is a modified version of the open treatment centre simulation model from Monks, T., Harper, A., Anagnostou, A., Allen, M. and Taylor, S. (2022). It is based on exercise 13 in Nelson (2013), *Foundations and Methods of Stochastic Simulation*.
 
-Key model functions are in
-- distribution_classes.py
-- model_classes.py
+[Treatment centre simulation repository](https://github.com/TomMonks/treatment-centre-sim/tree/main)
 
-Additional functions are in
-- helper_functions.py
+Patients arrive according to a time-dependent arrival profile and are triaged. Trauma patients are stabilised and then treated. Non-trauma patients are registered and examined, and some of them then go on to treatment.
 
-Animation functions are in
-- output_animation_functions.py
+All simulation logic uses [SimPy](https://simpy.readthedocs.io/). The animations are made with [vidigi](https://github.com/Bergam0t/vidigi).
 
+## What is HSMA?
 
-## Why stlite?
+HSMA is a course for people in England working in health, social care and policing organisations. Over 15 months it trains participants in operational research and data science techniques to support service development and decision making.
 
-This app has been designed for use in workshops, meaning that high concurrent load is expected. Due to the relatively high computational load and large datasets expected, this would be likely to quickly overwhelm the free tier available via Streamlit Community.
-[Stlite](https://github.com/whitphx/stlite) is a port of Streamlit to WebAssembly, and uses [pyodide](https://pyodide.org/en/stable/), an implementation of python in the browser, meaning all computation is transferred over to the users computers without requiring them to install Python or any packages. To the end user, it will be indistinguishable from a normal web application - apart from the longer initial loading time.
+More information about the course can be found [here](https://hsma.co.uk).
 
-It should be noted that the performance of the app is highly dependent on the device the user is running it on, and the default model run length and number of runs has been deliberately set quite low to allow for maximum compatability, though load times on less powerful devices will be significantly longer and it may struggle to store multiple simulation replications.
+All of the course materials are open source - check out [our repositories](https://github.com/hsma-programme).
