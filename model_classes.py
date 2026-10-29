@@ -1343,18 +1343,34 @@ def multiple_replications(
 
     n_reps: int, optional (default=DEFAULT_N_REPS)
         Number of independent replications to run.
+        Each replication's random number set is derived from the scenario's
+        `random_number_set`, so a different set gives different replications.
+        If it is None, replications use random number sets 0 to n_reps - 1.
 
     Returns:
     --------
     pandas.DataFrame
     """
 
+    # single_run overwrites the scenario's random number set, so keep the original
+    base_random_no_set = scenario.random_number_set
+    if base_random_no_set is None:
+        rep_random_no_sets = list(range(n_reps))
+    else:
+        rep_random_no_sets = (
+            np.random.SeedSequence(base_random_no_set).generate_state(n_reps).tolist()
+        )
+
     results = [
         single_run(
-            scenario=scenario, rc_period=rc_period, random_no_set=rep, rep_id=rep
+            scenario=scenario,
+            rc_period=rc_period,
+            random_no_set=rep_random_no_set,
+            rep_id=rep,
         )
-        for rep in range(n_reps)
+        for rep, rep_random_no_set in enumerate(rep_random_no_sets)
     ]
+    scenario.set_random_no_set(base_random_no_set)
 
     # format and return results in a dataframe
     df_results = pd.concat([run["summary_df"] for run in results])
