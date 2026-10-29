@@ -147,7 +147,7 @@ SLIDER_DEFAULTS = dict(
     n_cubicles_2=6,
     n_reg=3,
     n_exam=3,
-    n_cubicles_1=2,
+    n_cubicles_1=3,
     non_trauma_treat_p=0.7,
 )
 for slider_key, slider_value in SLIDER_DEFAULTS.items():
@@ -182,7 +182,7 @@ PRESETS = {
         n_exam=3,
         n_trauma=8,
         n_cubicles_1=2,
-        n_cubicles_2=3,
+        n_cubicles_2=4,
         prob_trauma=0.3,
         non_trauma_treat_p=0.7,
     ),
