@@ -214,17 +214,22 @@ PARAM_COLUMNS = {
 }
 
 
-def scenario_label(run_number, params_row):
-    """E.g. 'Scenario 2 (Balanced)', or 'Scenario 2 (Custom)' if no preset matches."""
-    run_params = {key: params_row[col] for col, key in PARAM_COLUMNS.items()}
+def matching_preset(run_params):
+    """Name of the preset (without its emoji) matching these slider values, else None."""
     for preset_name, preset_values in PRESETS.items():
         if all(
             math.isclose(run_params[key], value, abs_tol=1e-9)
             for key, value in preset_values.items()
         ):
             # Drop the emoji prefix from the preset button name
-            return f"Scenario {run_number} ({preset_name.split(' ', 1)[1]})"
-    return f"Scenario {run_number} (Custom)"
+            return preset_name.split(" ", 1)[1]
+    return None
+
+
+def scenario_label(run_number, params_row):
+    """E.g. 'Scenario 2 (Balanced)', or 'Scenario 2 (Custom)' if no preset matches."""
+    run_params = {key: params_row[col] for col, key in PARAM_COLUMNS.items()}
+    return f"Scenario {run_number} ({matching_preset(run_params) or 'Custom'})"
 
 
 SETTING_COLUMNS = list(PARAM_COLUMNS) + [
@@ -609,6 +614,33 @@ with tab1:
 
         def previous_value(key):
             return previous_summary[key] if previous_summary else None
+
+        st.divider()
+
+        # Recap of the choice that was run, and whether it was a preset
+        chosen_preset = matching_preset({key: st.session_state[key] for key in SLIDER_DEFAULTS})
+        st.markdown(
+            f"**Run type:** {f'Preset - {chosen_preset}' if chosen_preset else 'Custom'}"
+        )
+        room_counts = {
+            "🚦 Triage": n_triage,
+            "📝 Registration": n_reg,
+            "🔎 Examination": n_exam,
+            "💊 Non-trauma treatment": n_cubicles_1,
+            "🛏️ Trauma stabilisation": n_trauma,
+            "🤕 Trauma treatment": n_cubicles_2,
+        }
+        for room_col, (room_label, room_count) in zip(
+            st.columns(len(room_counts)), room_counts.items()
+        ):
+            with room_col.container(
+                border=True, height=100, key=f"room_card_{room_label}"
+            ):
+                st.markdown(
+                    f'<div class="room-label">{room_label}</div>'
+                    f'<div class="room-count">{room_count}</div>',
+                    unsafe_allow_html=True,
+                )
 
         col_seen, col_util, col_wait, col_longest = st.columns(4)
 
