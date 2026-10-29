@@ -766,8 +766,8 @@ with tab1:
             queue_events = {
                 "triage_wait_begins": ("Triage", "#74c476"),
                 "MINORS_registration_wait_begins": ("Registration", "#c6dbef"),
-                "MINORS_examination_wait_begins": ("Examination", "#6baed6"),
-                "MINORS_treatment_wait_begins": ("Non-trauma treatment", "#2b8cbe"),
+                "MINORS_examination_wait_begins": ("Examination", "#4eb3d3"),
+                "MINORS_treatment_wait_begins": ("Non-trauma treatment", "#08519c"),
                 "TRAUMA_stabilisation_wait_begins": ("Stabilisation", "#fcae91"),
                 "TRAUMA_treatment_wait_begins": ("Trauma treatment", "#ef3b2c"),
             }
