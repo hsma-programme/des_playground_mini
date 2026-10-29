@@ -126,7 +126,7 @@ EVENT_POSITION_DF = create_event_position_df(
 )
 
 st.set_page_config(
-    page_title="The Full Model",
+    page_title="Simulation Playground",
     layout="wide",
     initial_sidebar_state=300,
 )
