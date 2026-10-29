@@ -1,14 +1,20 @@
-@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;600&display=swap');
+/* Retro body font. To go back to Lexend, swap the font stack below, re-add the
+   Lexend @import, and remove `font = "monospace"` from .streamlit/config.toml. */
+:root {
+    --body-font: "Courier New", Courier, monospace;
+}
 
 html, body, st-emotion-cache [class*="css"] {
-    font-family: 'Lexend', sans-serif;
+    font-family: var(--body-font);
     font-size: 18px;
+    /* Shrinks the monospace text only (rem sizes are untouched). Lower = smaller. */
+    font-size-adjust: 0.42;
     font-weight: 300;
     color: #091747;
 }
 
 h1, h2, h3, h4 {
-	font-family: "Lexend", sans-serif;
+	font-family: var(--body-font);
 }
 
 [data-testid="stSidebarNavItems"] {
@@ -81,7 +87,9 @@ section[data-testid="stSidebar"] hr {
 }
 
 .st-key-animate_button button p {
+	font-family: "HSMA Display", sans-serif !important;
 	font-size: 1.25rem !important;
+	letter-spacing: 0.05em;
 }
 
 .st-key-animate_button button:hover,
@@ -179,4 +187,44 @@ img.stLogo {
 }
 [data-testid="stToolbar"] {
 	pointer-events: auto;
+}
+
+/* Don't shrink the HSMA display font or the icon font with the monospace adjustment. */
+[role="tablist"]::before,
+[data-testid="stTab"],
+[data-testid="stTab"] p,
+.st-key-animate_button button p,
+h1,
+[data-testid="stIconMaterial"] {
+	font-size-adjust: none;
+}
+
+/* ---- Preset scenario buttons: a little more clickable, still quiet ---- */
+[class*="st-key-preset_"] button {
+	background-color: rgba(31, 177, 185, 0.1);
+	border: 1px solid rgba(31, 177, 185, 0.5);
+	box-shadow: 0 2px 0 rgba(31, 177, 185, 0.35);
+	transition: transform 0.1s, box-shadow 0.1s, background-color 0.1s;
+}
+[class*="st-key-preset_"] button:hover {
+	background-color: rgba(31, 177, 185, 0.2);
+	border-color: #1fb1b9;
+	box-shadow: 0 3px 0 rgba(31, 177, 185, 0.5);
+	transform: translateY(-1px);
+}
+[class*="st-key-preset_"] button:active {
+	box-shadow: 0 0 0 rgba(31, 177, 185, 0);
+	transform: translateY(2px);
+}
+
+/* ---- st.info in a muted red to match the sidebar, instead of Streamlit's blue ---- */
+[data-testid="stAlertContainer"]:has([data-testid="stAlertContentInfo"]) {
+	background-color: rgba(85, 0, 0, 0.35);
+	border: 1px solid rgba(170, 70, 70, 0.35);
+	border-left: 4px solid #a04646;
+}
+[data-testid="stAlertContainer"]:has([data-testid="stAlertContentInfo"]),
+[data-testid="stAlertContentInfo"] p,
+[data-testid="stAlertContentInfo"] strong {
+	color: #fafafa;
 }

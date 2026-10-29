@@ -85,11 +85,11 @@ PRESETS = {
     "🏥 Current setup": dict(SLIDER_DEFAULTS),
     "😰 Understaffed": dict(
         n_triage=1,
-        n_reg=1,
-        n_exam=1,
-        n_trauma=1,
+        n_reg=2,
+        n_exam=2,
+        n_trauma=2,
         n_cubicles_1=1,
-        n_cubicles_2=1,
+        n_cubicles_2=2,
         prob_trauma=0.3,
         non_trauma_treat_p=0.7,
     ),
@@ -239,6 +239,17 @@ gc.collect()
 tab1, tab2 = st.tabs(["Simulate", "Compare Scenario Outputs"])
 
 with st.sidebar:
+    # A user must press a streamlit button (or a preset) to run the model
+    run_requested = st.session_state.pop("run_requested", False)
+    button_run_pressed = (
+        st.button(
+            "Click to run the simulation",
+            key="animate_button",
+            width="stretch",
+        )
+        or run_requested
+    )
+
     st.subheader("Triage")
     n_triage = st.slider(
         "🚦 Number of Triage Cubicles",
@@ -365,9 +376,10 @@ with tab1:
         Choose how many rooms of each type to open in the sidebar, hit run, and watch
         {run_time_days} days of patients flow through in seconds.
 
-        The app uses *discrete event simulation* - a technique that allows us to try out ideas
-        on a computer before testing them on real patients.
-        """
+        The app uses *discrete event simulation* - a technique that allows us to
+        <span style="color:#ffe600;font-weight:700">safely try out ideas on a computer before testing them on real patients</span>.
+        """,
+        unsafe_allow_html=True,
     )
 
     challenge_box = st.empty()
@@ -384,17 +396,6 @@ with tab1:
             args=(preset_name,),
             width="stretch",
         )
-
-    # A user must press a streamlit button (or a preset) to run the model
-    run_requested = st.session_state.pop("run_requested", False)
-    button_run_pressed = (
-        st.button(
-            "Click to run the simulation",
-            key="animate_button",
-            width="stretch",
-        )
-        or run_requested
-    )
 
     if button_run_pressed:
         # add a spinner and then display success box
