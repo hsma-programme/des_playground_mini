@@ -373,10 +373,11 @@ with tab1:
     st.markdown(
         f"""
         This is a virtual emergency department, and **you're in charge of staffing it**.
-        Choose how many rooms of each type to open in the sidebar, hit run, and watch
-        {run_time_days} days of patients flow through in seconds.
 
-        The app uses *discrete event simulation* - a technique that allows us to
+        Choose how many rooms of each type to open in the sidebar, hit run, and watch
+        {run_time_days} days in seconds.
+
+        This uses *discrete event simulation* - a technique that allows us to
         <span style="color:#ffe600;font-weight:700">safely try out ideas on a computer before testing them on real patients</span>.
         """,
         unsafe_allow_html=True,

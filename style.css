@@ -86,6 +86,10 @@ section[data-testid="stSidebar"] hr {
 	color: #ffffff;
 }
 
+.st-key-animate_button {
+	margin: 0.75rem 0 1.5rem;
+}
+
 .st-key-animate_button button p {
 	font-family: "HSMA Display", sans-serif !important;
 	font-size: 1.25rem !important;
