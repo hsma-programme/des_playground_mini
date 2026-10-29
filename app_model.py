@@ -176,6 +176,8 @@ def run_simulation(
 
     Cached on the settings, so asking for the same run again doesn't repeat it.
     """
+    # Only reached on a cache miss, so the caller can tell a fresh run from a cached one
+    st.session_state["sim_was_run"] = True
     scenario = Scenario(
         random_number_set=seed,
         n_triage=n_triage,
@@ -408,6 +410,7 @@ with tab1:
             my_bar = st.progress(0, text="Simulating the emergency department...")
 
             # run multiple replications of experment
+            st.session_state["sim_was_run"] = False
             sim_start = time.perf_counter()
             # Identical settings are served from the cache rather than rerun
             results, single_log = run_simulation(
@@ -565,9 +568,16 @@ with tab1:
             help="The worst average wait at any stage of the process.",
         )
 
+        run_word = "run" if n_reps == 1 else "runs"
+        timing = (
+            f" in {sim_seconds:.1f} seconds"
+            if st.session_state["sim_was_run"]
+            else ""
+        )
         st.caption(
             f"Simulated {n_reps * run_time_days} days of emergency department activity "
-            f"({summary['arrivals']:,} patient arrivals) in {sim_seconds:.1f} seconds."
+            f"({n_reps} {run_word} of {run_time_days} days; "
+            f"{summary['arrivals']:,} patient arrivals){timing}."
         )
 
         st.markdown(
@@ -581,8 +591,8 @@ with tab1:
                     "n_trauma": n_trauma,
                     "n_cubicles_2": n_cubicles_2,
                 },
-                days=run_time_days,
-            )
+            ),
+            unsafe_allow_html=True,
         )
 
         n_in_range = summary["util_in_range"] + summary["wait_in_range"]
@@ -601,11 +611,6 @@ with tab1:
                     f"Everything is in the green with {total_rooms} rooms. "
                     f"Your best is {best_rooms} - can you do it with fewer?"
                 )
-        else:
-            st.info(
-                f"{n_in_range} of {n_metrics} metrics are in the green. "
-                "Change some sliders and run it again!"
-            )
 
         with st.container():
             event_position_df = pd.DataFrame(
@@ -716,11 +721,11 @@ with tab1:
                 event_position_df=event_position_df,
                 scenario=args,
                 include_play_button=True,
-                plotly_height=860,
+                plotly_height=725,
                 plotly_width=1150,
                 override_x_max=700,
                 override_y_max=675,
-                entity_icon_size=17,
+                entity_icon_size=14,
                 # vidigi 2.0.0 sizes the bay markers by this (default 24); they
                 # were a fixed 15 before
                 resource_icon_size=15,
@@ -810,7 +815,6 @@ with tab1:
                 ticktext=[label for _, label in ticks],
                 tickangle=0,
                 tickfont=dict(size=10),
-                title_text="Day",
                 row=2,
                 col=1,
             )
@@ -839,6 +843,9 @@ with tab1:
                     xanchor="left",
                     yanchor="bottom",
                 ),
+                # Pull the play button and slider up closer to the queue chart
+                sliders=[dict(pad=dict(t=16))],
+                updatemenus=[dict(pad=dict(t=16))],
             )
 
             del queue_sizes

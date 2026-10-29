@@ -232,3 +232,35 @@ h1,
 [data-testid="stAlertContentInfo"] strong {
 	color: #fafafa;
 }
+
+/* ---- Narrower sidebar ---- */
+section[data-testid="stSidebar"][aria-expanded="true"] {
+	width: 16rem !important;
+	min-width: 16rem !important;
+}
+
+/* ---- Result summary boxes (findings side by side) and hint pills ---- */
+.result-box {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1rem;
+	margin-bottom: 1rem;
+}
+.result-line {
+	flex: 1 1 14rem;
+	text-align: center;
+	padding: 1rem 1.25rem;
+	border: 1px solid rgba(255, 255, 255, 0.3);
+	border-radius: 0.5rem;
+	background-color: rgba(255, 255, 255, 0.04);
+}
+.hint-pill {
+	display: inline-block;
+	margin-top: 0.5rem;
+	padding: 0.1rem 0.75rem;
+	border-radius: 999px;
+	background-color: rgba(255, 230, 0, 0.12);
+	border: 1px solid rgba(255, 230, 0, 0.45);
+	color: #ffe600;
+	font-size: 0.9em;
+}

@@ -198,6 +198,30 @@ def render_looping_plotly_animation(
             1,
         )
 
+    # The figure has a fixed pixel width. If the page is narrower than that
+    # (narrow window, wide sidebar), shrink the whole figure to fit instead of
+    # showing scrollbars, and resize the iframe to match.
+    fig_width = fig.layout.width
+    if fig_width is not None:
+        fit_script = """
+<script>
+(function () {
+    var figW = %d, figH = %d;
+    function fit() {
+        document.documentElement.style.overflow = 'hidden';
+        var s = Math.min(1, window.innerWidth / figW);
+        document.body.style.zoom = s;
+        if (window.frameElement) {
+            window.frameElement.style.height = Math.ceil(figH * s) + 10 + 'px';
+        }
+    }
+    window.addEventListener('resize', fit);
+    fit();
+})();
+</script>
+""" % (int(fig_width), int(height) - 10)
+        html = html.replace("</body>", fit_script + "</body>", 1)
+
     components.html(html, height=height, scrolling=True)
 
 
@@ -371,12 +395,18 @@ def format_minutes(minutes):
     return f"{minutes // (24 * 60)}d {minutes % (24 * 60) // 60}h"
 
 
-def describe_results(results, room_counts, days):
+def hint_pill(text):
+    """A small rounded "hint" pill (styled by ``.hint-pill`` in style.css)."""
+    return f'<span class="hint-pill">💡 {text}</span>'
+
+
+def describe_results(results, room_counts):
     """
-    Describe a run in a couple of plain-English sentences.
+    Describe a run in a couple of plain-English lines.
 
     Points at the stage with the longest queue (if any is over the target) and
-    at the quietest resource (if it is under-used and could lose a room).
+    at the quietest resource (if it is under-used and could lose a room). Each
+    finding is its own box, side by side, with a suggestion shown as a hint pill.
 
     Params:
     ------
@@ -385,20 +415,15 @@ def describe_results(results, room_counts, days):
     room_counts: dict
         How many of each resource were available, keyed by slider key (the
         ``slider`` entries of ``STAGES``).
-    days: int
-        Length of each simulated run, in days.
 
     Returns:
     -------
     str
-        Markdown.
+        HTML, so render it with ``st.markdown(..., unsafe_allow_html=True)``.
     """
     means = results.mean()
 
-    sentences = [
-        f"In an average {days}-day run, {means['00_arrivals']:,.0f} patients arrived "
-        f"and {means['09_throughput']:,.0f} had left by the end."
-    ]
+    lines = []
 
     waits = [
         (means[stage["wait"]], name, stage)
@@ -407,10 +432,10 @@ def describe_results(results, room_counts, days):
     ]
     if waits:
         wait, name, stage = max(waits, key=lambda w: w[0])
-        sentences.append(
-            f"The longest queue was for **{name}**: patients waited "
+        lines.append(
+            f"The longest queue was for <strong>{name}</strong>:<br>patients waited "
             f"{format_minutes(wait)} on average. "
-            f"Try adding a {stage['resource']}."
+            + hint_pill(f"Try adding a {stage['resource']}")
         )
 
     # Only suggest closing something if there is more than one of it
@@ -422,15 +447,16 @@ def describe_results(results, room_counts, days):
     ]
     if quiet:
         util, stage = min(quiet, key=lambda q: q[0])
-        sentences.append(
-            f"The {stage['resource']}s were only {util:.0%} busy - "
-            "could you manage with one fewer?"
+        lines.append(
+            f"The {stage['resource']}s were only in use {util:.0%} of the time. "
+            + hint_pill("Could you manage with one fewer?")
         )
 
     if not waits and not quiet:
-        sentences.append("Nothing is queueing for long and nothing is sitting idle.")
+        lines.append("Nothing is queueing for long and nothing is sitting idle.")
 
-    return " ".join(sentences)
+    items = "".join(f'<div class="result-line">{line}</div>' for line in lines)
+    return f'<div class="result-box">{items}</div>'
 
 
 def metric_with_delta(
