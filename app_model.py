@@ -7,6 +7,7 @@ Allows users to interact with an increasingly complex treatment simulation
 """
 
 import gc
+import math
 import time
 import asyncio
 import pandas as pd
@@ -112,6 +113,32 @@ def apply_preset(name):
     for slider_key, slider_value in PRESETS[name].items():
         st.session_state[slider_key] = slider_value
     st.session_state["run_requested"] = True
+
+
+# Result columns that record each slider, so a run can be matched to a preset
+PARAM_COLUMNS = {
+    "Triage\nCubicles": "n_triage",
+    "Registration\nCubicles": "n_reg",
+    "Examination\nRooms": "n_exam",
+    "Non-Trauma\nTreatment Cubicles": "n_cubicles_1",
+    "Trauma\nStabilisation Bays": "n_trauma",
+    "Trauma\nTreatment Cubicles": "n_cubicles_2",
+    "Probability patient\nis a trauma patient": "prob_trauma",
+    "Probability non-trauma patients\nrequire treatment": "non_trauma_treat_p",
+}
+
+
+def scenario_label(run_number, params_row):
+    """E.g. 'Scenario 2 (Balanced)', or 'Scenario 2 (Custom)' if no preset matches."""
+    run_params = {key: params_row[col] for col, key in PARAM_COLUMNS.items()}
+    for preset_name, preset_values in PRESETS.items():
+        if all(
+            math.isclose(run_params[key], value, abs_tol=1e-9)
+            for key, value in preset_values.items()
+        ):
+            # Drop the emoji prefix from the preset button name
+            return f"Scenario {run_number} ({preset_name.split(' ', 1)[1]})"
+    return f"Scenario {run_number} (Custom)"
 
 
 def clear_scenarios():
@@ -946,6 +973,13 @@ with tab2:
     if len(st.session_state["session_results"]) > 0:
         all_run_results = pd.concat(st.session_state["session_results"])
 
+        # "Scenario 2 (Balanced)" / "Scenario 3 (Custom)" for each model run
+        scenario_labels = {
+            run: scenario_label(run, rows.iloc[0])
+            for run, rows in all_run_results.groupby("Model Run")
+        }
+        scenario_order = list(scenario_labels.values())
+
         st.button("Clear scenarios", key="clear_scenarios", on_click=clear_scenarios)
 
         st.subheader("Look at Average Results Across Replications")
@@ -956,7 +990,8 @@ with tab2:
             all_run_results.groupby("Model Run").median().T.reset_index(drop=False)
         )
         parameter_scenario_df.columns = [
-            f"Scenario {i}" for i in parameter_scenario_df.columns
+            scenario_labels.get(i, f"Scenario {i}")
+            for i in parameter_scenario_df.columns
         ]
         parameter_scenario_df = parameter_scenario_df[
             ~parameter_scenario_df["Scenario index"].str.contains(r"\d", regex=True)
@@ -990,13 +1025,12 @@ with tab2:
                     .T.filter(like="util", axis=0)
                     .reset_index(drop=False)
                     .melt(id_vars="index", var_name="model_run")
-                    .assign(
-                        model_run=lambda d: "Scenario " + d["model_run"].astype(str)
-                    ),
+                    .assign(model_run=lambda d: d["model_run"].map(scenario_labels)),
                     x="value",
                     y="index",
                     barmode="group",
                     color="model_run",
+                    category_orders={"model_run": scenario_order},
                     range_x=[0, 1],
                     height=800,
                 )
@@ -1025,13 +1059,12 @@ with tab2:
                     .T.filter(like="wait", axis=0)
                     .reset_index(drop=False)
                     .melt(id_vars="index", var_name="model_run")
-                    .assign(
-                        model_run=lambda d: "Scenario " + d["model_run"].astype(str)
-                    ),
+                    .assign(model_run=lambda d: d["model_run"].map(scenario_labels)),
                     x="value",
                     y="index",
                     barmode="group",
                     color="model_run",
+                    category_orders={"model_run": scenario_order},
                     height=800,
                 )
 
@@ -1062,10 +1095,12 @@ with tab2:
                     .melt(id_vars=["Model Run", "rep"])
                     .set_index("variable")
                     .filter(like="util", axis=0)
-                    .reset_index(),
+                    .reset_index()
+                    .assign(Scenario=lambda d: d["Model Run"].map(scenario_labels)),
                     y="variable",
                     x="value",
-                    color="Model Run",
+                    color="Scenario",
+                    category_orders={"Scenario": scenario_order},
                     points="all",
                     range_x=[0, 1],
                     height=800,
@@ -1096,11 +1131,12 @@ with tab2:
                     .melt(id_vars=["Model Run", "rep"])
                     .set_index("variable")
                     .filter(like="wait", axis=0)
-                    .reset_index(),
-                    #                 left_index=True, right_index=True),
+                    .reset_index()
+                    .assign(Scenario=lambda d: d["Model Run"].map(scenario_labels)),
                     y="variable",
                     x="value",
-                    color="Model Run",
+                    color="Scenario",
+                    category_orders={"Scenario": scenario_order},
                     points="all",
                     height=800,
                 )
@@ -1140,10 +1176,12 @@ with tab2:
                     .melt(id_vars=["Model Run", "rep"])
                     .set_index("variable")
                     .filter(like="perc_throughput", axis=0)
-                    .reset_index(),
+                    .reset_index()
+                    .assign(Scenario=lambda d: d["Model Run"].map(scenario_labels)),
                     y="variable",
                     x="value",
-                    color="Model Run",
+                    color="Scenario",
+                    category_orders={"Scenario": scenario_order},
                     points="all",
                     height=800,
                 )
@@ -1201,7 +1239,8 @@ with tab2:
                 index="index", columns="Model Run", values="formatted_value"
             ).reset_index(drop=False)
             output_scenario_df.columns = [
-                f"Scenario {i}" for i in output_scenario_df.columns
+                scenario_labels.get(i, f"Scenario {i}")
+                for i in output_scenario_df.columns
             ]
             # st.dataframe(output_scenario_df)
             output_scenario_df = output_scenario_df[
