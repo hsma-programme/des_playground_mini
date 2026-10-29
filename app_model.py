@@ -940,7 +940,7 @@ with tab1:
                 )
                 # wait_fig_simple.data = wait_fig_simple.data[::-1]
                 wait_fig_simple.update_yaxes(
-                    title_text="Wait for Treatment Stage (Minutes)"
+                    title_text="Wait for Treatment Stage<br>(Minutes)"
                 )
 
                 wait_fig_simple.update_layout(
