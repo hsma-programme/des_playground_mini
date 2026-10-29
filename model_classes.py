@@ -551,17 +551,15 @@ class TraumaPathway:
         # ------------------------------------------------------- #
 
         # request sign-in/triage
-        with self.args.triage.request() as req:
-            # --- MARK: Vidigi modification - return request object --- #
-            # --- Also log resource use start
-            obtained_triage_resource = yield req
-
-            self.logger.log_resource_use_start(
-                entity_id=self.identifier,
-                event="triage_begins",
-                resource_id=obtained_triage_resource.id_attribute,
-            )
-            # --------------------------------------------------------- #
+        # --- MARK: Vidigi modification - store logs resource use automatically --- #
+        with self.args.triage.request(
+            entity_id=self.identifier,
+            start_event="triage_begins",
+            end_event="triage_ends",
+            pathway="trauma",
+        ) as req:
+            yield req
+            # ------------------------------------------------------------------- #
             # record the waiting time for triage
             self.wait_triage = self.env.now - self.arrival
 
@@ -570,13 +568,6 @@ class TraumaPathway:
             # sample triage duration.
             self.triage_duration = self.args.triage_dist.sample()
             yield self.env.timeout(self.triage_duration)
-            # --- MARK: Vidigi modification - log resource use end --- #
-            self.logger.log_resource_use_end(
-                entity_id=self.identifier,
-                event="triage_ends",
-                resource_id=obtained_triage_resource.id_attribute,
-            )
-            # -------------------------------------------------------- #
             self.triage_complete()
 
         # record the time that entered the trauma queue
@@ -588,17 +579,13 @@ class TraumaPathway:
         # ------------------------------------------------------- #
 
         # request trauma room
-        with self.args.trauma.request() as req:
-            # --- MARK: Vidigi modification - return request object --- #
-            # --- Also log resource use start
-            obtained_stabilisation_resource = yield req
-
-            self.logger.log_resource_use_start(
-                entity_id=self.identifier,
-                event="TRAUMA_stabilisation_begins",
-                resource_id=obtained_stabilisation_resource.id_attribute,
-            )
-            # --------------------------------------------------------- #
+        with self.args.trauma.request(
+            entity_id=self.identifier,
+            start_event="TRAUMA_stabilisation_begins",
+            end_event="TRAUMA_stabilisation_ends",
+            pathway="trauma",
+        ) as req:
+            yield req
 
             # record the waiting time for trauma
             self.wait_trauma = self.env.now - start_wait
@@ -606,14 +593,6 @@ class TraumaPathway:
             # sample stablisation duration.
             self.trauma_duration = self.args.trauma_dist.sample()
             yield self.env.timeout(self.trauma_duration)
-
-            # --- MARK: Vidigi modification - log resource use end --- #
-            self.logger.log_resource_use_end(
-                entity_id=self.identifier,
-                event="TRAUMA_stabilisation_ends",
-                resource_id=obtained_stabilisation_resource.id_attribute,
-            )
-            # -------------------------------------------------------- #
 
             self.trauma_complete()
 
@@ -626,17 +605,13 @@ class TraumaPathway:
         # ------------------------------------------------------- #
 
         # request treatment cubicle
-        with self.args.cubicle_2.request() as req:
-            # --- MARK: Vidigi modification - return request object --- #
-            # --- Also log resource use start
-            obtained_treatment_resource = yield req
-
-            self.logger.log_resource_use_start(
-                entity_id=self.identifier,
-                event="TRAUMA_treatment_begins",
-                resource_id=obtained_treatment_resource.id_attribute,
-            )
-            # --------------------------------------------------------- #
+        with self.args.cubicle_2.request(
+            entity_id=self.identifier,
+            start_event="TRAUMA_treatment_begins",
+            end_event="TRAUMA_treatment_ends",
+            pathway="trauma",
+        ) as req:
+            yield req
 
             # record the waiting time for trauma
             self.wait_treat = self.env.now - start_wait
@@ -645,14 +620,6 @@ class TraumaPathway:
             # sample treatment duration.
             self.treat_duration = self.args.treat_dist.sample()
             yield self.env.timeout(self.treat_duration)
-
-            # --- MARK: Vidigi modification - log resource use end --- #
-            self.logger.log_resource_use_end(
-                entity_id=self.identifier,
-                event="TRAUMA_treatment_ends",
-                resource_id=obtained_treatment_resource.id_attribute,
-            )
-            # -------------------------------------------------------- #
 
             self.treatment_complete()
 
@@ -766,17 +733,15 @@ class NonTraumaPathway:
         # ------------------------------------------------------- #
 
         # request sign-in/triage
-        with self.triage.request() as req:
-            # --- MARK: Vidigi modification - return request object --- #
-            # --- Also log resource use start
-            obtained_triage_resource = yield req
-
-            self.logger.log_resource_use_start(
-                entity_id=self.identifier,
-                event="triage_begins",
-                resource_id=obtained_triage_resource.id_attribute,
-            )
-            # --------------------------------------------------------- #
+        # --- MARK: Vidigi modification - store logs resource use automatically --- #
+        with self.triage.request(
+            entity_id=self.identifier,
+            start_event="triage_begins",
+            end_event="triage_ends",
+            pathway="minors",
+        ) as req:
+            yield req
+            # ------------------------------------------------------------------- #
 
             # record the waiting time for triage
             self.wait_triage = self.env.now - self.arrival
@@ -791,14 +756,6 @@ class NonTraumaPathway:
                 f"waiting time was {self.wait_triage:.3f}"
             )
 
-            # --- MARK: Vidigi modification - log resource use end --- #
-            self.logger.log_resource_use_end(
-                entity_id=self.identifier,
-                event="triage_ends",
-                resource_id=obtained_triage_resource.id_attribute,
-            )
-            # -------------------------------------------------------- #
-
         # record the time that entered the registration queue
         start_wait = self.env.now
         # --- MARK: Vidigi modification - log start of queueing --- #
@@ -808,17 +765,13 @@ class NonTraumaPathway:
         # ------------------------------------------------------- #
 
         # request registration clert
-        with self.args.registration.request() as req:
-            # --- MARK: Vidigi modification - return request object --- #
-            # --- Also log resource use start
-            obtained_registration_resource = yield req
-
-            self.logger.log_resource_use_start(
-                entity_id=self.identifier,
-                event="MINORS_registration_begins",
-                resource_id=obtained_registration_resource.id_attribute,
-            )
-            # --------------------------------------------------------- #
+        with self.args.registration.request(
+            entity_id=self.identifier,
+            start_event="MINORS_registration_begins",
+            end_event="MINORS_registration_ends",
+            pathway="minors",
+        ) as req:
+            yield req
 
             # record the waiting time for registration
             self.wait_reg = self.env.now - start_wait
@@ -827,14 +780,6 @@ class NonTraumaPathway:
             # sample registration duration.
             self.reg_duration = self.args.reg_dist.sample()
             yield self.env.timeout(self.reg_duration)
-
-            # --- MARK: Vidigi modification - log resource use end --- #
-            self.logger.log_resource_use_end(
-                entity_id=self.identifier,
-                event="MINORS_registration_ends",
-                resource_id=obtained_registration_resource.id_attribute,
-            )
-            # -------------------------------------------------------- #
 
             trace(
                 f"patient {self.identifier} registered at"
@@ -851,17 +796,13 @@ class NonTraumaPathway:
         # ------------------------------------------------------- #
 
         # request examination resource
-        with self.args.exam.request() as req:
-            # --- MARK: Vidigi modification - return request object --- #
-            # --- Also log resource use start
-            obtained_examination_resource = yield req
-
-            self.logger.log_resource_use_start(
-                entity_id=self.identifier,
-                event="MINORS_examination_begins",
-                resource_id=obtained_examination_resource.id_attribute,
-            )
-            # --------------------------------------------------------- #
+        with self.args.exam.request(
+            entity_id=self.identifier,
+            start_event="MINORS_examination_begins",
+            end_event="MINORS_examination_ends",
+            pathway="minors",
+        ) as req:
+            yield req
 
             # record the waiting time for registration
             self.wait_exam = self.env.now - start_wait
@@ -870,14 +811,6 @@ class NonTraumaPathway:
             # sample examination duration.
             self.exam_duration = self.args.exam_dist.sample()
             yield self.env.timeout(self.exam_duration)
-
-            # --- MARK: Vidigi modification - log resource use end --- #
-            self.logger.log_resource_use_end(
-                entity_id=self.identifier,
-                event="MINORS_examination_ends",
-                resource_id=obtained_examination_resource.id_attribute,
-            )
-            # -------------------------------------------------------- #
 
             trace(
                 f"patient {self.identifier} examination complete "
@@ -898,17 +831,13 @@ class NonTraumaPathway:
             # ------------------------------------------------------- #
 
             # request treatment cubicle
-            with self.args.cubicle_1.request() as req:
-                # --- MARK: Vidigi modification - return request object --- #
-                # --- Also log resource use start
-                obtained_treatment_resource = yield req
-
-                self.logger.log_resource_use_start(
-                    entity_id=self.identifier,
-                    event="MINORS_treatment_begins",
-                    resource_id=obtained_treatment_resource.id_attribute,
-                )
-                # --------------------------------------------------------- #
+            with self.args.cubicle_1.request(
+                entity_id=self.identifier,
+                start_event="MINORS_treatment_begins",
+                end_event="MINORS_treatment_ends",
+                pathway="minors",
+            ) as req:
+                yield req
 
                 # record the waiting time for treatment
                 self.wait_treat = self.env.now - start_wait
@@ -919,14 +848,6 @@ class NonTraumaPathway:
                 # sample treatment duration.
                 self.treat_duration = self.args.nt_treat_dist.sample()
                 yield self.env.timeout(self.treat_duration)
-
-                # --- MARK: Vidigi modification - log resource use end --- #
-                self.logger.log_resource_use_end(
-                    entity_id=self.identifier,
-                    event="MINORS_treatment_ends",
-                    resource_id=obtained_treatment_resource.id_attribute,
-                )
-                # -------------------------------------------------------- #
 
                 trace(
                     f"patient {self.identifier} treatment complete "
@@ -960,6 +881,13 @@ class TreatmentCentreModel:
     def __init__(self, args: Scenario, rep_id: int):
         self.env = simpy.Environment()
         self.args = args
+        # --- MARK: Vidigi modification - set up event logger --- #
+        # (created before the resources so the stores can log through it)
+        self.rep_id = rep_id
+        self.logger = EventLogger(
+            env=self.env, run_number=self.rep_id, scenario=self.args
+        )
+        # ------------------------------------------------------- #
         self.init_resources()
 
         self.patients = []
@@ -968,10 +896,6 @@ class TreatmentCentreModel:
 
         self.rc_period = None
         self.results = None
-        # --- MARK: Vidigi modification - set up event logger --- #
-        self.rep_id = rep_id
-        self.logger = EventLogger(env=self.env, run_number=self.rep_id)
-        # ------------------------------------------------------- #
 
     def init_resources(self) -> None:
         """
@@ -991,26 +915,54 @@ class TreatmentCentreModel:
         # --- MARK - Vidigi modification: change resource instances to simpy stores --- #
         # Note the use of num_resources parameter in place of capacity parameter
 
+        # Passing logger= means each request() logs resource use automatically.
+
         # sign/in triage
-        self.args.triage = VidigiStore(self.env, num_resources=self.args.n_triage)
+        self.args.triage = VidigiStore(
+            self.env,
+            num_resources=self.args.n_triage,
+            label="triage",
+            logger=self.logger,
+        )
 
         # registration
-        self.args.registration = VidigiStore(self.env, num_resources=self.args.n_reg)
+        self.args.registration = VidigiStore(
+            self.env,
+            num_resources=self.args.n_reg,
+            label="registration",
+            logger=self.logger,
+        )
 
         # examination
-        self.args.exam = VidigiStore(self.env, num_resources=self.args.n_exam)
+        self.args.exam = VidigiStore(
+            self.env,
+            num_resources=self.args.n_exam,
+            label="examination",
+            logger=self.logger,
+        )
 
         # trauma
-        self.args.trauma = VidigiStore(self.env, num_resources=self.args.n_trauma)
+        self.args.trauma = VidigiStore(
+            self.env,
+            num_resources=self.args.n_trauma,
+            label="trauma",
+            logger=self.logger,
+        )
 
         # non-trauma treatment
         self.args.cubicle_1 = VidigiStore(
-            self.env, num_resources=self.args.n_cubicles_1
+            self.env,
+            num_resources=self.args.n_cubicles_1,
+            label="cubicle_1",
+            logger=self.logger,
         )
 
         # trauma treatment
         self.args.cubicle_2 = VidigiStore(
-            self.env, num_resources=self.args.n_cubicles_2
+            self.env,
+            num_resources=self.args.n_cubicles_2,
+            label="cubicle_2",
+            logger=self.logger,
         )
 
         # ------------------------------------------------------------------------------ #
@@ -1111,7 +1063,7 @@ class SimulationSummary:
     End of run result processing logic of the simulation model
     """
 
-    def __init__(self, model: TreatmentCentreModel, save_logs: bool) -> None:
+    def __init__(self, model: TreatmentCentreModel) -> None:
         """
         Constructor
 
@@ -1123,7 +1075,6 @@ class SimulationSummary:
         self.model = model
         self.args = model.args
         self.results = None
-        self.save_logs = save_logs
 
     def process_run_results(self) -> None:
         """
@@ -1313,50 +1264,6 @@ class SimulationSummary:
         df.index.name = "rep"
         return df
 
-    # --- MARK - Vidigi modification: add animation function call --- #
-    def animate_run(
-        self,
-        scenario: Scenario,
-        rc_period: Optional[float] = DEFAULT_RESULTS_COLLECTION_PERIOD,
-        debug_animation: Optional[bool] = False,
-    ):
-
-        return self.model.logger.to_dataframe()
-
-        if self.save_logs:
-            self.model.logger.to_dataframe().to_csv("event_logs.csv")
-
-        # fig = animate_activity_log(
-        #     event_log=self.model.logger.to_dataframe(),
-        #     event_position_df=EVENT_POSITION_DF,
-        #     scenario=scenario,
-        #     debug_mode=debug_animation,
-        #     setup_mode=False,
-        #     every_x_time_units=5,
-        #     include_play_button=True,
-        #     gap_between_entities=11,
-        #     gap_between_resources=15,
-        #     gap_between_resource_rows=30,
-        #     gap_between_queue_rows=30,
-        #     plotly_height=600,
-        #     plotly_width=1000,
-        #     override_x_max=700,
-        #     override_y_max=675,
-        #     entity_icon_size=10,
-        #     resource_icon_size=13,
-        #     text_size=15,
-        #     wrap_queues_at=10,
-        #     step_snapshot_max=20,
-        #     limit_duration=rc_period,
-        #     time_display_units="dhm",
-        #     display_stage_labels=False,
-        #     add_background_image="https://raw.githubusercontent.com/Bergam0t/vidigi/refs/heads/main/examples/example_2_branching_multistep/Full%20Model%20Background%20Image%20-%20Horizontal%20Layout.drawio.png",
-        # )
-
-        # return fig
-
-    # -------------------------------------------------------------- #
-
 
 # ## Executing a model
 
@@ -1366,7 +1273,6 @@ def single_run(
     rep_id: int,
     rc_period: Optional[float] = DEFAULT_RESULTS_COLLECTION_PERIOD,
     random_no_set: Optional[int] = DEFAULT_RNG_SET,
-    save_logs: Optional[bool] = False,
     # ------------------------------------------------------------------------------------ #
 ) -> Union[pd.DataFrame, Tuple[pd.DataFrame, Any]]:
     """
@@ -1409,7 +1315,7 @@ def single_run(
     model.run(results_collection_period=rc_period)
 
     # run results
-    summary = SimulationSummary(model, save_logs=save_logs)
+    summary = SimulationSummary(model)
     summary_df = summary.summary_frame()
 
     # --- MARK - Vidigi modification: return required data for animation --- #
@@ -1458,7 +1364,9 @@ def multiple_replications(
     if summary:
         return df_results
     else:
-        trial_log = TrialLogger(event_logs=[run["model"].logger for run in results])
+        trial_log = TrialLogger(
+            event_logs=[run["model"].logger for run in results], scenario=scenario
+        )
         return {"summary_df": df_results, "trial_log": trial_log}
 
 
@@ -1539,55 +1447,6 @@ def run_scenario_analysis(
 
     print("Scenario analysis complete.")
     return scenario_results
-
-
-# --- MARK - Vidigi modification: return animation if requested --- #
-# --- At present, this just does a single run per scenario and returns the
-# animation for this
-# A better approach may be to run multiple runs, take a 'representative' simulation
-# (or perhaps a 'bad', 'average' and 'good' simulation, based on a user-chosen metric)
-# and return animations for each, to minimize risks associated with users looking at a single
-# animation and basing their decisions too heavily on this
-def run_scenario_analysis_animations(
-    scenarios: Dict[str, Scenario], rc_period: float
-) -> Dict[str, pd.DataFrame]:
-    """
-    Run each of the scenarios for a specified results
-    collection period and replications.
-
-    Params:
-    ------
-    scenarios: dict
-        dictionary of Scenario objects
-
-    rc_period: float
-        model run length
-
-    Returns:
-    -------
-    Dict
-
-    """
-    print("Scenario Analysis")
-    print(f"No. Scenario: {len(scenarios)}")
-    print("Replications: 1")
-
-    scenario_results = {}
-    for sc_name, scenario in scenarios.items():
-        print(f"Running {sc_name}", end=" => ")
-        summary_df, animation_fig = single_run(
-            scenario, rc_period=rc_period, animate_run=True, debug_animation=False
-        )
-        print("done.\n")
-
-        # save the results
-        scenario_results[sc_name] = animation_fig
-
-    print("Scenario analysis complete.")
-    return scenario_results
-
-
-# -------------------------------------------------------------------- #
 
 
 def scenario_summary_frame(scenario_results: Dict[str, pd.DataFrame]) -> pd.DataFrame:

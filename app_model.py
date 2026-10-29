@@ -29,18 +29,101 @@ from helper_functions import (
     summarise_results,
 )
 from model_classes import Scenario, multiple_replications
-from vidigi.prep import (
-    reshape_for_animations,
-    generate_animation_df,
-)
 from vidigi.animation import (
-    generate_animation,
+    animate_activity_log,
     add_subplot_panels,
     add_synchronised_trace,
 )
 from vidigi.analysis import queue_size_over_time
+from vidigi.utils import EventPosition, ExitPosition, create_event_position_df
 
 EVERY_X_MINUTES = 10
+
+# Where each step of the patient journey is drawn on the animation. Event names
+# must match those logged in model_classes.py; `resource` names the Scenario
+# attribute holding the number of rooms for that step.
+EVENT_POSITION_DF = create_event_position_df(
+    [
+        EventPosition(
+            event="triage_wait_begins", x=150, y=400, label="Waiting for<br>Triage"
+        ),
+        EventPosition(
+            event="triage_begins",
+            x=150,
+            y=315,
+            resource="n_triage",
+            label="Being Triaged",
+        ),
+        # Minors (non-trauma) pathway
+        EventPosition(
+            event="MINORS_registration_wait_begins",
+            x=290,
+            y=140,
+            label="Waiting for<br>Registration",
+        ),
+        EventPosition(
+            event="MINORS_registration_begins",
+            x=290,
+            y=80,
+            resource="n_reg",
+            label="Being<br>Registered",
+        ),
+        EventPosition(
+            event="MINORS_examination_wait_begins",
+            x=460,
+            y=140,
+            label="Waiting for<br>Examination",
+        ),
+        EventPosition(
+            event="MINORS_examination_begins",
+            x=460,
+            y=80,
+            resource="n_exam",
+            label="Being<br>Examined",
+        ),
+        EventPosition(
+            event="MINORS_treatment_wait_begins",
+            x=625,
+            y=140,
+            label="Waiting for<br>Treatment",
+        ),
+        EventPosition(
+            event="MINORS_treatment_begins",
+            x=625,
+            y=80,
+            resource="n_cubicles_1",
+            label="Being<br>Treated",
+        ),
+        # Trauma pathway
+        EventPosition(
+            event="TRAUMA_stabilisation_wait_begins",
+            x=295,
+            y=540,
+            label="Waiting for<br>Stabilisation",
+        ),
+        EventPosition(
+            event="TRAUMA_stabilisation_begins",
+            x=295,
+            y=485,
+            resource="n_trauma",
+            label="Being<br>Stabilised",
+        ),
+        EventPosition(
+            event="TRAUMA_treatment_wait_begins",
+            x=630,
+            y=540,
+            label="Waiting for<br>Treatment",
+        ),
+        EventPosition(
+            event="TRAUMA_treatment_begins",
+            x=630,
+            y=485,
+            resource="n_cubicles_2",
+            label="Being<br>Treated",
+        ),
+        ExitPosition(x=670, y=330),
+    ]
+)
 
 st.set_page_config(
     page_title="The Full Model",
@@ -507,13 +590,6 @@ with tab1:
 
             my_bar.progress(80, text="Creating Animations...")
 
-            animation_dfs_log = reshape_for_animations(
-                event_log=single_log,
-                step_snapshot_max=30,
-                every_x_time_units=EVERY_X_MINUTES,
-                limit_duration=min(run_time_days * 60 * 24, 60 * 24 * 5),
-            )
-
             my_bar = st.empty()
 
         gc.collect()
@@ -613,113 +689,22 @@ with tab1:
                 )
 
         with st.container():
-            event_position_df = pd.DataFrame(
-                [
-                    {
-                        "event": "triage_wait_begins",
-                        "x": 150,
-                        "y": 400,
-                        "label": "Waiting for<br>Triage",
-                    },
-                    {
-                        "event": "triage_begins",
-                        "x": 150,
-                        "y": 315,
-                        "resource": "n_triage",
-                        "label": "Being Triaged",
-                    },
-                    # Minors (non-trauma) pathway
-                    {
-                        "event": "MINORS_registration_wait_begins",
-                        "x": 290,
-                        "y": 140,
-                        "label": "Waiting for<br>Registration",
-                    },
-                    {
-                        "event": "MINORS_registration_begins",
-                        "x": 290,
-                        "y": 80,
-                        "resource": "n_reg",
-                        "label": "Being<br>Registered",
-                    },
-                    {
-                        "event": "MINORS_examination_wait_begins",
-                        "x": 460,
-                        "y": 140,
-                        "label": "Waiting for<br>Examination",
-                    },
-                    {
-                        "event": "MINORS_examination_begins",
-                        "x": 460,
-                        "y": 80,
-                        "resource": "n_exam",
-                        "label": "Being<br>Examined",
-                    },
-                    {
-                        "event": "MINORS_treatment_wait_begins",
-                        "x": 625,
-                        "y": 140,
-                        "label": "Waiting for<br>Treatment",
-                    },
-                    {
-                        "event": "MINORS_treatment_begins",
-                        "x": 625,
-                        "y": 80,
-                        "resource": "n_cubicles_1",
-                        "label": "Being<br>Treated",
-                    },
-                    # Trauma pathway
-                    {
-                        "event": "TRAUMA_stabilisation_wait_begins",
-                        "x": 295,
-                        "y": 540,
-                        "label": "Waiting for<br>Stabilisation",
-                    },
-                    {
-                        "event": "TRAUMA_stabilisation_begins",
-                        "x": 295,
-                        "y": 485,
-                        "resource": "n_trauma",
-                        "label": "Being<br>Stabilised",
-                    },
-                    {
-                        "event": "TRAUMA_treatment_wait_begins",
-                        "x": 630,
-                        "y": 540,
-                        "label": "Waiting for<br>Treatment",
-                    },
-                    {
-                        "event": "TRAUMA_treatment_begins",
-                        "x": 630,
-                        "y": 485,
-                        "resource": "n_cubicles_2",
-                        "label": "Being<br>Treated",
-                    },
-                    {"event": "exit", "x": 670, "y": 330, "label": "Exit"},
-                ]
-            )
-
-            # st.dataframe(animation_dfs_log)
-
             st.markdown(
                 f"""
     The plot below shows a snapshot every {EVERY_X_MINUTES} minutes of the position of everyone in our emergency department model.
     """
             )
 
-            full_patient_df_plus_pos = generate_animation_df(
-                full_entity_df=animation_dfs_log,
-                event_position_df=event_position_df,
+            animated_plot = animate_activity_log(
+                event_log=single_log,
+                event_position_df=EVENT_POSITION_DF,
+                scenario=args,
+                every_x_time_units=EVERY_X_MINUTES,
+                limit_duration=min(run_time_days * 60 * 24, 60 * 24 * 5),
+                step_snapshot_max=30,
                 wrap_queues_at=10,
                 gap_between_entities=10,
                 gap_between_queue_rows=22,
-                step_snapshot_max=30,
-            )
-
-            animated_plot = generate_animation(
-                full_entity_df_plus_pos=full_patient_df_plus_pos,
-                event_position_df=event_position_df,
-                scenario=args,
                 include_play_button=True,
                 plotly_height=725,
                 plotly_width=1150,
@@ -755,7 +740,8 @@ with tab1:
                 every_x_time_units=60,
             ).pivot(index="snapshot_time", columns="event", values="count")
 
-            frame_times = sorted(full_patient_df_plus_pos["snapshot_time"].unique())
+            # One frame per snapshot, starting at time 0
+            frame_times = np.arange(len(animated_plot.frames)) * EVERY_X_MINUTES
 
             # Traces are returned as plain dicts rather than go.Scatter - plotly
             # validates them when they are attached to each frame anyway, and
@@ -849,7 +835,6 @@ with tab1:
             )
 
             del queue_sizes
-            del animation_dfs_log
             gc.collect()
 
             render_looping_plotly_animation(animated_plot, text_color="white")
