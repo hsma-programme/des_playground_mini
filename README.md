@@ -114,7 +114,7 @@ All simulation logic uses [SimPy](https://simpy.readthedocs.io/). The animations
 
 ## What is HSMA?
 
-HSMA is a course for people in England working in health, social care and policing organisations. Over 15 months it trains participants in operational research and data science techniques to support service development and decision making.
+HSMA is a course for people in England working in health and social care organisations. Over 15 months it trains participants in operational research and data science techniques to support service development and decision making.
 
 More information about the course can be found [here](https://hsma.co.uk).
 

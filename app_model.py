@@ -486,7 +486,8 @@ with tab1:
     st.caption(
         "Not sure where to start? Try a preset - it sets the sliders and runs the simulation for you."
     )
-    preset_cols = st.columns(len(PRESETS))
+    # Understaffed and Balanced are slightly narrower to leave room for the longer last label
+    preset_cols = st.columns([1, 0.9, 0.9, 1.2])
     for preset_col, preset_name in zip(preset_cols, PRESETS):
         preset_col.button(
             f"{preset_name} ({preset_total_rooms(preset_name)} rooms)",
@@ -1425,7 +1426,7 @@ footer_text.markdown(
     """
     **Want to learn how to build models like this?**
 
-    HSMA trains people working in health, social care and policing in simulation modelling
+    HSMA trains people working in health and social care in simulation modelling
     and data science. Scan the code or visit the
     [HSMA website](https://hsma.co.uk) to find out more, or
     [explore the code for this app](https://github.com/hsma-programme/des_playground_mini).
