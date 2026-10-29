@@ -44,6 +44,8 @@ To reduce the risk with a large group:
 - **For big groups, work in pairs or small teams on one device each** rather than one device per person.
 - **If the app falls over,** the app owner can reboot it from **Manage app** on Community Cloud. This clears its memory but disconnects everyone, and their saved scenarios are lost.
 
+**If you need lots of people using it at the same time, use the full DES Playground instead.** The [full DES Playground](https://playground.hsma.co.uk) runs on stlite, so each person's copy runs in their own browser, on their own computer, with nothing to download or install. Nobody shares memory or processing power with anyone else, so it copes with large groups much better than this app. It covers the concepts step by step rather than jumping straight to the challenge, so plan the session around that.
+
 ### Discussion points
 
 **"Why can't I change the number of rooms during the day?"**
