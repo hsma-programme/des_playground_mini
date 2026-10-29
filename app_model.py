@@ -22,8 +22,8 @@ from helper_functions import (
     add_logo,
     add_util_bands,
     add_wait_band,
-    center_running,
     describe_results,
+    hide_running,
     metric_with_delta,
     render_looping_plotly_animation,
     summarise_results,
@@ -299,7 +299,7 @@ def challenge_message(total_rooms):
 
 add_logo()
 
-center_running()
+hide_running()
 
 with open("style.css") as css:
     st.markdown(f"<style>{css.read()}</style>", unsafe_allow_html=True)
@@ -484,113 +484,116 @@ with tab1:
         )
 
     if button_run_pressed:
-        # add a spinner and then display success box
-        with st.spinner("Simulating the emergency department..."):
-            # await asyncio.sleep(0.1)
-
-            my_bar = st.empty()
-
+        # Progress card shown in a full-screen overlay (styled in style.css) until
+        # the animation has been built; cleared with loading_box.empty() below
+        loading_box = st.empty()
+        with (
+            loading_box.container(key="loading_overlay"),
+            st.container(key="loading_card"),
+        ):
+            st.markdown(
+                '<div class="loading-spinner"></div><p class="loading-title">Running your scenario</p>',
+                unsafe_allow_html=True,
+            )
             my_bar = st.progress(0, text="Simulating the emergency department...")
 
-            # run multiple replications of experment
-            st.session_state["sim_was_run"] = False
-            sim_start = time.perf_counter()
-            # Identical settings are served from the cache rather than rerun
-            results, single_log = run_simulation(
-                seed=seed,
-                n_triage=n_triage,
-                n_reg=n_reg,
-                n_exam=n_exam,
-                n_trauma=n_trauma,
-                n_cubicles_1=n_cubicles_1,
-                n_cubicles_2=n_cubicles_2,
-                non_trauma_treat_p=non_trauma_treat_p,
-                prob_trauma=prob_trauma,
-                n_reps=n_reps,
-                run_time_days=run_time_days,
+        # run multiple replications of experment
+        st.session_state["sim_was_run"] = False
+        sim_start = time.perf_counter()
+        # Identical settings are served from the cache rather than rerun
+        results, single_log = run_simulation(
+            seed=seed,
+            n_triage=n_triage,
+            n_reg=n_reg,
+            n_exam=n_exam,
+            n_trauma=n_trauma,
+            n_cubicles_1=n_cubicles_1,
+            n_cubicles_2=n_cubicles_2,
+            non_trauma_treat_p=non_trauma_treat_p,
+            prob_trauma=prob_trauma,
+            n_reps=n_reps,
+            run_time_days=run_time_days,
+        )
+        results = results.copy()
+        sim_seconds = time.perf_counter() - sim_start
+
+        my_bar.progress(40, text="Collating Simulation Outputs...")
+
+        my_bar.progress(60, text="Logging Results...")
+
+        # print(len(st.session_state['session_results']))
+        # results_for_state = pd.DataFrame(results.median()).T.drop(['Rep'], axis=1)
+        results_for_state = results
+        original_cols = results_for_state.columns.values
+        results_for_state["Triage\nCubicles"] = args.n_triage
+        results_for_state["Registration\nCubicles"] = args.n_reg
+        results_for_state["Examination\nRooms"] = args.n_exam
+        results_for_state["Non-Trauma\nTreatment Cubicles"] = args.n_cubicles_1
+        results_for_state["Trauma\nStabilisation Bays"] = args.n_trauma
+        results_for_state["Trauma\nTreatment Cubicles"] = args.n_cubicles_2
+        results_for_state["Probability patient\nis a trauma patient"] = (
+            args.prob_trauma
+        )
+        results_for_state["Probability non-trauma patients\nrequire treatment"] = (
+            args.non_trauma_treat_p
+        )
+        results_for_state["Model Run"] = (
+            len(st.session_state["session_results"]) + 1
+        )
+        results_for_state["Random Seed"] = seed
+        results_for_state["Run Length\n(days)"] = run_time_days
+        results_for_state["Replications"] = n_reps
+
+        # Reorder columns
+        column_order = [
+            "Model Run",
+            "Triage\nCubicles",
+            "Registration\nCubicles",
+            "Examination\nRooms",
+            "Non-Trauma\nTreatment Cubicles",
+            "Trauma\nStabilisation Bays",
+            "Trauma\nTreatment Cubicles",
+            "Probability patient\nis a trauma patient",
+            "Probability non-trauma patients\nrequire treatment",
+            "Random Seed",
+            "Run Length\n(days)",
+            "Replications",
+        ] + list(original_cols)
+
+        results_for_state = results_for_state[column_order]
+
+        current_state = st.session_state["session_results"]
+
+        previous_summary = (
+            summarise_results(current_state[-1]) if current_state else None
+        )
+
+        duplicate_of = (
+            next(
+                (
+                    run
+                    for run, rows in pd.concat(current_state).groupby("Model Run")
+                    if same_settings(rows.iloc[0], results_for_state.iloc[0])
+                ),
+                None,
             )
-            results = results.copy()
-            sim_seconds = time.perf_counter() - sim_start
+            if current_state
+            else None
+        )
 
-            my_bar.progress(40, text="Collating Simulation Outputs...")
+        # Identical settings would only add a duplicate column to the comparison
+        if duplicate_of is None:
+            current_state.append(results_for_state)
 
-            my_bar.progress(60, text="Logging Results...")
+        del results_for_state
+        gc.collect()
 
-            # print(len(st.session_state['session_results']))
-            # results_for_state = pd.DataFrame(results.median()).T.drop(['Rep'], axis=1)
-            results_for_state = results
-            original_cols = results_for_state.columns.values
-            results_for_state["Triage\nCubicles"] = args.n_triage
-            results_for_state["Registration\nCubicles"] = args.n_reg
-            results_for_state["Examination\nRooms"] = args.n_exam
-            results_for_state["Non-Trauma\nTreatment Cubicles"] = args.n_cubicles_1
-            results_for_state["Trauma\nStabilisation Bays"] = args.n_trauma
-            results_for_state["Trauma\nTreatment Cubicles"] = args.n_cubicles_2
-            results_for_state["Probability patient\nis a trauma patient"] = (
-                args.prob_trauma
-            )
-            results_for_state["Probability non-trauma patients\nrequire treatment"] = (
-                args.non_trauma_treat_p
-            )
-            results_for_state["Model Run"] = (
-                len(st.session_state["session_results"]) + 1
-            )
-            results_for_state["Random Seed"] = seed
-            results_for_state["Run Length\n(days)"] = run_time_days
-            results_for_state["Replications"] = n_reps
+        st.session_state["session_results"] = current_state
 
-            # Reorder columns
-            column_order = [
-                "Model Run",
-                "Triage\nCubicles",
-                "Registration\nCubicles",
-                "Examination\nRooms",
-                "Non-Trauma\nTreatment Cubicles",
-                "Trauma\nStabilisation Bays",
-                "Trauma\nTreatment Cubicles",
-                "Probability patient\nis a trauma patient",
-                "Probability non-trauma patients\nrequire treatment",
-                "Random Seed",
-                "Run Length\n(days)",
-                "Replications",
-            ] + list(original_cols)
+        del current_state
+        gc.collect()
 
-            results_for_state = results_for_state[column_order]
-
-            current_state = st.session_state["session_results"]
-
-            previous_summary = (
-                summarise_results(current_state[-1]) if current_state else None
-            )
-
-            duplicate_of = (
-                next(
-                    (
-                        run
-                        for run, rows in pd.concat(current_state).groupby("Model Run")
-                        if same_settings(rows.iloc[0], results_for_state.iloc[0])
-                    ),
-                    None,
-                )
-                if current_state
-                else None
-            )
-
-            # Identical settings would only add a duplicate column to the comparison
-            if duplicate_of is None:
-                current_state.append(results_for_state)
-
-            del results_for_state
-            gc.collect()
-
-            st.session_state["session_results"] = current_state
-
-            del current_state
-            gc.collect()
-
-            my_bar.progress(80, text="Creating Animations...")
-
-            my_bar = st.empty()
+        my_bar.progress(70, text="Creating animation frames...")
 
         gc.collect()
 
@@ -720,6 +723,8 @@ with tab1:
                 add_background_image="https://raw.githubusercontent.com/hsma-programme/Teaching_DES_Concepts_Streamlit/main/resources/Full%20Model%20Background%20Image%20-%20Horizontal%20Layout.drawio.png",
             )
 
+            my_bar.progress(80, text="Calculating queue lengths...")
+
             # Add a line chart of queue lengths beneath the animation, revealed in
             # step with the animation frames
             queue_events = {
@@ -768,6 +773,8 @@ with tab1:
                     for event, (label, colour) in queue_events.items()
                 ]
 
+            my_bar.progress(85, text="Adding the queue chart panel...")
+
             animated_plot = add_subplot_panels(
                 animated_plot,
                 row_heights=[0.82, 0.18],
@@ -778,7 +785,11 @@ with tab1:
             # below for the queue lines
             animated_plot.update_traces(showlegend=False)
 
+            my_bar.progress(90, text="Syncing the queue chart to every frame...")
+
             animated_plot = add_synchronised_trace(animated_plot, queue_traces)
+
+            my_bar.progress(95, text="Tidying up the charts...")
 
             # Ticks every 6 hours: day numbers at midnight, times of day between
             tick_labels = ["6am", "12pm", "6pm"]
@@ -837,7 +848,12 @@ with tab1:
             del queue_sizes
             gc.collect()
 
+            my_bar.progress(98, text="Sending the animation to your browser...")
+
             render_looping_plotly_animation(animated_plot, text_color="white")
+
+            my_bar.progress(100, text="Done")
+            loading_box.empty()
 
             st.caption("""
                 The chart beneath the animation shows how many patients are waiting in each queue, building up as the animation plays.

@@ -493,24 +493,16 @@ def metric_with_delta(
     col.metric(label, value, delta=delta, delta_color=colour, help=help)
 
 
-def center_running():
+def hide_running():
     """
-    Have the "running man" animation in the center of the screen instead of the top right corner.
+    Hide the "running man" status widget; progress is shown in the loading overlay instead.
     """
     st.markdown(
         """
 <style>
 
 div[class*="StatusWidget"]{
-
-    position: fixed;
-    margin: auto;
-    top: 50%;
-    left: 50%;
-    marginRight: "0px"
-    width: 50%;
-    scale: 2.75;
-    opacity: 1
+    display: none;
 }
 
 </style>
