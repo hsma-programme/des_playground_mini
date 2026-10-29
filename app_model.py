@@ -110,7 +110,7 @@ EVENT_POSITION_DF = create_event_position_df(
         ),
         EventPosition(
             event="TRAUMA_treatment_wait_begins",
-            x=630,
+            x=620,
             y=540,
             label="Waiting for<br>Treatment",
         ),
@@ -180,7 +180,7 @@ PRESETS = {
         n_triage=2,
         n_reg=2,
         n_exam=3,
-        n_trauma=7,
+        n_trauma=8,
         n_cubicles_1=2,
         n_cubicles_2=3,
         prob_trauma=0.3,
@@ -394,6 +394,8 @@ with st.sidebar:
     )
 
     st.divider()
+
+    st.markdown("<div style='height: 1rem'></div>", unsafe_allow_html=True)
 
     st.subheader("Patient Mix")
     prob_trauma = st.slider(
