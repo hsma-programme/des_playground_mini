@@ -6,6 +6,7 @@ Original Model: https://github.com/TomMonks/treatment-centre-sim/tree/main
 Allows users to interact with an increasingly complex treatment simulation
 """
 
+import base64
 import gc
 import math
 import time
@@ -38,6 +39,8 @@ from vidigi.animation import (
     add_synchronised_trace,
 )
 from vidigi.analysis import queue_size_over_time
+
+EVERY_X_MINUTES = 10
 
 st.set_page_config(
     page_title="The Full Model",
@@ -94,7 +97,7 @@ PRESETS = {
         n_triage=2,
         n_reg=2,
         n_exam=3,
-        n_trauma=7,
+        n_trauma=6,
         n_cubicles_1=2,
         n_cubicles_2=3,
         prob_trauma=0.3,
@@ -198,13 +201,14 @@ def clear_scenarios():
     st.session_state["best_rooms"] = None
 
 
-def challenge_message():
+def challenge_message(total_rooms):
     message = (
         "🏆 **Your challenge:** get every utilisation and wait metric into the "
         "green, using as few rooms as you can."
     )
     if st.session_state["best_rooms"] is not None:
         message += f" Best so far: **{st.session_state['best_rooms']} rooms**."
+    message += f"\n\nTotal rooms in use in your scenario: **{total_rooms}**"
     return message
 
 
@@ -215,21 +219,26 @@ center_running()
 with open("style.css") as css:
     st.markdown(f"<style>{css.read()}</style>", unsafe_allow_html=True)
 
-## We add in a title for our web app's page
-col1_intro, col2_intro = st.columns([0.5, 0.4])
-
-col1_intro.title("Discrete Event Simulation Playground")
-col2_intro.caption(
-    "Once you have run more than one scenario, try out the new tab 'compare scenario outputs'."
+# HSMA display font for the sidebar title. Embedded as base64 so it loads
+# without needing static file serving.
+with open("resources/fonts/hsma-display/HSMADisplay-Regular.woff2", "rb") as font:
+    font_b64 = base64.b64encode(font.read()).decode()
+st.markdown(
+    f"""<style>
+    @font-face {{
+        font-family: "HSMA Display";
+        src: url(data:font/woff2;base64,{font_b64}) format("woff2");
+    }}
+    </style>""",
+    unsafe_allow_html=True,
 )
+
 
 gc.collect()
 
-tab1, tab2 = st.tabs(["Playground", "Compare Scenario Outputs"])
+tab1, tab2 = st.tabs(["Simulate", "Compare Scenario Outputs"])
 
 with st.sidebar:
-    total_rooms_in_use_container = st.empty()
-
     st.subheader("Triage")
     n_triage = st.slider(
         "🚦 Number of Triage Cubicles",
@@ -300,10 +309,6 @@ with st.sidebar:
     )
 
     total_rooms = n_cubicles_1 + n_cubicles_2 + n_exam + n_trauma + n_triage + n_reg
-
-    with total_rooms_in_use_container:
-        with st.container(border=True):
-            st.caption(f"Total rooms in use is {total_rooms}")
 
     with st.expander("Advanced Parameters"):
         seed = st.slider(
@@ -470,14 +475,18 @@ with tab1:
                 summarise_results(current_state[-1]) if current_state else None
             )
 
-            duplicate_of = next(
-                (
-                    run
-                    for run, rows in pd.concat(current_state).groupby("Model Run")
-                    if same_settings(rows.iloc[0], results_for_state.iloc[0])
-                ),
-                None,
-            ) if current_state else None
+            duplicate_of = (
+                next(
+                    (
+                        run
+                        for run, rows in pd.concat(current_state).groupby("Model Run")
+                        if same_settings(rows.iloc[0], results_for_state.iloc[0])
+                    ),
+                    None,
+                )
+                if current_state
+                else None
+            )
 
             # Identical settings would only add a duplicate column to the comparison
             if duplicate_of is None:
@@ -496,7 +505,7 @@ with tab1:
             animation_dfs_log = reshape_for_animations(
                 event_log=single_log,
                 step_snapshot_max=30,
-                every_x_time_units=10,
+                every_x_time_units=EVERY_X_MINUTES,
                 limit_duration=min(run_time_days * 60 * 24, 60 * 24 * 5),
             )
 
@@ -506,10 +515,10 @@ with tab1:
 
         if duplicate_of is not None:
             st.toast(
-                f"These settings match Scenario {duplicate_of}, so the stored results "
-                "were reused rather than simulated again, and nothing new was added "
-                "to the comparison.",
+                f"These settings match Scenario {duplicate_of}, "
+                "so nothing new was added to the scenario comparison tab.",
                 icon="♻️",
+                duration=3,
             )
 
         summary = summarise_results(results)
@@ -686,8 +695,8 @@ with tab1:
             # st.dataframe(animation_dfs_log)
 
             st.markdown(
-                """
-    The plot below shows a snapshot every 5 minutes of the position of everyone in our emergency department model.
+                f"""
+    The plot below shows a snapshot every {EVERY_X_MINUTES} minutes of the position of everyone in our emergency department model.
     """
             )
 
@@ -806,6 +815,15 @@ with tab1:
             animated_plot.update_yaxes(
                 range=[0, queue_sizes.values.max() + 1],
                 title_text="Patients waiting",
+                title_standoff=12,
+                ticks="outside",
+                showticklabels=True,
+                showgrid=True,
+                gridcolor="rgba(128,128,128,0.25)",
+                nticks=4,
+                tickformat="d",
+                automargin=True,
+                tickfont=dict(size=10),
                 row=2,
                 col=1,
             )
@@ -1039,7 +1057,7 @@ with tab1:
                     .T.rename_axis("Metric", axis=0)
                 )
 
-    challenge_box.info(challenge_message())
+    challenge_box.info(challenge_message(total_rooms))
 
 #################################################
 # Create area for exploring all session results
@@ -1114,6 +1132,7 @@ with tab2:
 
                 all_run_util_bar.update_yaxes(
                     labelalias=UTIL_LABELS,
+                    autorange="reversed",
                     tickangle=0,
                     title_text="",
                 )
@@ -1145,6 +1164,7 @@ with tab2:
 
                 all_run_wait_bar.update_yaxes(
                     labelalias=WAIT_LABELS,
+                    autorange="reversed",
                     tickangle=0,
                     title_text="",
                 )
@@ -1185,6 +1205,7 @@ with tab2:
 
                 all_run_util_box.update_yaxes(
                     labelalias=UTIL_LABELS,
+                    autorange="reversed",
                     tickangle=0,
                     title_text="",
                 )
@@ -1218,6 +1239,7 @@ with tab2:
 
                 all_run_wait_box.update_yaxes(
                     labelalias=WAIT_LABELS,
+                    autorange="reversed",
                     tickangle=0,
                     title_text="",
                 )
@@ -1267,6 +1289,7 @@ with tab2:
 
                 all_results_throughput_box.update_yaxes(
                     title_text="",
+                    autorange="reversed",
                     labelalias={
                         "perc_throughput": "Throughput (% of arrivals<br>that exit before model end)"
                     },
@@ -1340,7 +1363,7 @@ with tab2:
             gc.collect()
     else:
         st.markdown(
-            "No scenarios have been run yet. Go to the 'Playground' tab and run the simulation."
+            "No scenarios have been run yet. Go to the 'Simulate' tab and run the simulation."
         )
 
 #################################################

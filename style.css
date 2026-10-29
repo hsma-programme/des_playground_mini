@@ -26,7 +26,7 @@ h1 {
     /* Top padding must clear the fixed toolbar ("Deploy" / menu); too small a
        value (the old 1rem) let the first row render under it and get clipped -
        most visible in stlite. */
-    padding: 3.5rem 2rem 2rem;
+    padding: 2.75rem 2rem 2rem;
     min-width: auto;
     max-width: initial;
 }
@@ -49,12 +49,20 @@ section[data-testid="stSidebar"] [data-testid="stSlider"] {
 }
 section[data-testid="stSidebar"] [data-testid="stSliderTickBar"] {
 	font-size: 0.75rem;
+	opacity: 1 !important;
+	visibility: visible !important;
 }
 
 /* Pull each slider a little closer to its label (but leave room for the
 	value that sits just above the track). */
 section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] {
 	margin-bottom: 0.35rem;
+}
+
+/* Less space above the section subtitles (Triage, Trauma Pathway, ...). */
+section[data-testid="stSidebar"] h3 {
+	padding-top: 0;
+	margin-top: -0.6rem;
 }
 
 /* Tighten the gap above and below the divider between the two groups. */
@@ -90,12 +98,85 @@ section[data-testid="stSidebar"] hr {
 	height: auto;
 	min-height: 0;
 	padding-top: 0.9rem;
-	padding-bottom: 0.4rem;
+	padding-bottom: 0;
+	position: relative;
+	justify-content: center;
+}
+/* Keep the collapse button out of the flow so the logo stays centred. */
+[data-testid="stSidebarHeader"] [data-testid="stSidebarCollapseButton"] {
+	position: absolute;
+	top: 0.5rem;
+	right: 0.5rem;
+}
+/* Page title in the HSMA font. */
+h1 {
+	font-family: "HSMA Display", sans-serif !important;
+	font-weight: 400;
 }
 [data-testid="stSidebarLogo"],
 img.stLogo {
-	height: 4rem !important;
-	max-height: 4rem !important;
+	height: 11rem !important;
+	max-height: 11rem !important;
+	margin: 0 auto;
 	width: auto;
 	max-width: 100%;
+}
+
+/* ---- Faux navbar: the page tabs are a full-width bar pinned to the top ---- */
+/* This Streamlit renders tabs with react-aria (role="tablist" / data-testid="stTab"),
+	not baseweb, so target those. */
+[role="tablist"] {
+	position: sticky;
+	top: 0;
+	z-index: 100;
+	display: flex;
+	align-items: center;
+	/* Bleed out to the edges of the main area (cancels the container padding). */
+	margin: -2.75rem -2rem 1rem;
+	padding: 0.9rem 2rem 0.6rem;
+	background-color: #1b1a1a;
+	border-bottom: 1px solid #3a3838;
+	gap: 0.75rem;
+}
+/* The app title, at the left of the bar. */
+[role="tablist"]::before {
+	content: "Simulation Playground";
+	font-family: "HSMA Display", sans-serif;
+	font-size: 2rem;
+	letter-spacing: 0.05em;
+	margin-right: 2rem;
+}
+/* Tabs as pills; the selected one is filled. */
+[data-testid="stTab"] {
+	padding: 0.4rem 1rem;
+	border-radius: 999px;
+	border: 1px solid transparent;
+	transition: background-color 0.15s;
+}
+[data-testid="stTab"]:hover {
+	background-color: rgba(255, 255, 255, 0.08);
+}
+[data-testid="stTab"][data-selected="true"] {
+	background-color: #1fb1b9;
+}
+[data-testid="stTab"][data-selected="true"] p {
+	color: #ffffff;
+}
+/* Hide the default underline indicator; the filled pill replaces it. */
+.react-aria-SelectionIndicator {
+	display: none;
+}
+[data-testid="stTab"],
+[data-testid="stTab"] p {
+	font-family: "HSMA Display", sans-serif !important;
+	font-size: 1.1rem !important;
+	letter-spacing: 0.05em;
+}
+/* Let the toolbar sit above the bar, but not swallow clicks meant for the tabs. */
+[data-testid="stHeader"] {
+	background: transparent;
+	pointer-events: none;
+}
+[data-testid="stToolbar"] {
+	pointer-events: auto;
 }

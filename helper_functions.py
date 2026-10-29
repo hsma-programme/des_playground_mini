@@ -53,7 +53,7 @@ def add_logo():
     locally and on the stlite virtual filesystem.
     """
     st.logo(
-        "resources/hsma_logo_transparent_background_large.png",
+        "resources/Chalky HSMA-07-wide white logo tall with tagline - new tagline.png",
         size="large",
         link="https://hsma.co.uk",
     )
