@@ -1,16 +1,33 @@
-/* Retro body font. To go back to Lexend, swap the font stack below, re-add the
-   Lexend @import, and remove `font = "monospace"` from .streamlit/config.toml. */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+
+/* Body font. The theme font in .streamlit/config.toml must match (it is what
+   Streamlit's own widgets use). To switch fonts, change both and the @import.
+   --readout-font is for the metric numbers only. */
 :root {
-    --body-font: "Courier New", Courier, monospace;
+    --body-font: "Space Grotesk", sans-serif;
+    --readout-font: "Space Mono", monospace;
+}
+
+/* Streamlit sets its theme font on the app root, so override it there too. */
+[data-testid="stApp"],
+[data-testid="stSidebar"] {
+    font-family: var(--body-font) !important;
 }
 
 html, body, st-emotion-cache [class*="css"] {
     font-family: var(--body-font);
     font-size: 18px;
-    /* Shrinks the monospace text only (rem sizes are untouched). Lower = smaller. */
-    font-size-adjust: 0.42;
     font-weight: 300;
     color: #091747;
+}
+
+/* Metric readouts in the mono font. */
+[data-testid="stMetricValue"],
+[data-testid="stMetricValue"] *,
+[data-testid="stMetricDelta"],
+[data-testid="stMetricDelta"] * {
+	font-family: var(--readout-font) !important;
 }
 
 h1, h2, h3, h4 {

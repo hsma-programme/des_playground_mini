@@ -1,6 +1,6 @@
 [theme]
 base = "dark"
-font = "monospace"
+font = "Space Grotesk:https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap, sans-serif"
 
 [theme.dark]
 backgroundColor = "#1b1a1a"
