@@ -338,6 +338,7 @@ with st.sidebar:
     st.image(
         "resources/NIHR_APPLIED_RESEARCH_COLLABORATION_Logo_Horizontal_RGB_WHITE.png",
         width="stretch",
+        link="https://arc-sw.nihr.ac.uk/",
     )
 
     # A user must press a streamlit button (or a preset) to run the model
