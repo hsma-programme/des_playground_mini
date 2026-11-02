@@ -1433,7 +1433,8 @@ footer_text.markdown(
     """
     **Want to learn how to build models like this?**
 
-    HSMA trains people working in health and social care in simulation modelling
+    The Health Service Modelling Associates (HSMA) programme trains people working in
+    health and social care in simulation modelling
     and data science. Scan the code or visit the
     [HSMA website](https://hsma.co.uk) to find out more, or
     [explore the code for this app](https://github.com/hsma-programme/des_playground_mini).
