@@ -43,6 +43,11 @@ EVERY_X_MINUTES = 10
 # full; capping the animation keeps it quick to build and send to the browser.
 MAX_ANIMATION_DAYS = 3
 
+
+def count(n, word):
+    """E.g. count(1, "day") -> "1 day", count(4, "day") -> "4 days"."""
+    return f"{n} {word}" if n == 1 else f"{n} {word}s"
+
 # Where each step of the patient journey is drawn on the animation. Event names
 # must match those logged in model_classes.py; `resource` names the Scenario
 # attribute holding the number of rooms for that step.
@@ -487,13 +492,15 @@ with tab1:
         This is a virtual emergency department, and **you're in charge of staffing it**.
 
         Choose how many rooms of each type to open in the sidebar, hit run, and watch
-        {f"{run_time_days} days" if anim_days == run_time_days
+        {count(run_time_days, "day") if anim_days == run_time_days
          else f"the first {anim_days} of {run_time_days} simulated days"}
         in the ED pass in a few minutes.
 
         This uses *discrete event simulation* - a technique that allows us to
         <span style="color:#ffe600;font-weight:700">safely try out ideas on a computer before testing them on real patients</span>.
-        The simulation is repeated {n_reps} times to see how performance might vary in reality.
+        {"The simulation is run once - run it more times (under Advanced Parameters) to see"
+         if n_reps == 1
+         else f"The simulation is repeated {n_reps} times to see"} how performance might vary in reality.
         """,
         unsafe_allow_html=True,
     )
@@ -703,13 +710,12 @@ with tab1:
             help="The worst average wait at any stage of the process.",
         )
 
-        run_word = "run" if n_reps == 1 else "runs"
         timing = (
             f" in {sim_seconds:.1f} seconds" if st.session_state["sim_was_run"] else ""
         )
         st.caption(
-            f"Simulated {n_reps * run_time_days} days of emergency department activity "
-            f"({n_reps} {run_word} of {run_time_days} days; "
+            f"Simulated {count(n_reps * run_time_days, 'day')} of emergency department "
+            f"activity ({count(n_reps, 'run')} of {count(run_time_days, 'day')}; "
             f"{summary['arrivals']:,} patient arrivals){timing}."
         )
 
