@@ -993,7 +993,9 @@ with tab1:
                 # util_fig_simple.data = util_fig_simple.data[::-1]
                 util_fig_simple.update_xaxes(
                     labelalias=UTIL_LABELS,
-                    tickangle=0,
+                    # No tickangle: Plotly's default keeps the labels
+                    # horizontal where they fit and rotates them only where
+                    # they would overlap (narrow screens)
                 )
                 st.plotly_chart(util_fig_simple, width="stretch")
 
@@ -1018,7 +1020,9 @@ with tab1:
 
                 wait_fig_simple.update_xaxes(
                     labelalias=WAIT_LABELS,
-                    tickangle=0,
+                    # No tickangle: Plotly's default keeps the labels
+                    # horizontal where they fit and rotates them only where
+                    # they would overlap (narrow screens)
                 )
                 # wait_fig_simple.data = wait_fig_simple.data[::-1]
                 wait_fig_simple.update_yaxes(
