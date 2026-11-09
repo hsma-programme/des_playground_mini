@@ -1,4 +1,5 @@
 import json
+from numbers import Number
 import urllib.request as request
 import streamlit as st
 import streamlit.components.v1 as components
@@ -349,12 +350,35 @@ def render_looping_plotly_animation(
 
 # Targets used by the playground (and described in its explanatory text)
 UTIL_IDEAL_RANGE = (0.65, 0.85)
+# Below this, a resource is barely used (red rather than amber)
+UTIL_LOW_LIMIT = 0.4
 WAIT_LIMIT_MINS = 120
 
 # Colours of the shaded "how are we doing?" bands drawn behind the charts
 BAND_GOOD = "#5DFDA0"
 BAND_WARN = "#FDD049"
 BAND_BAD = "#D45E5E"
+
+
+def util_band_colour(value):
+    """Band colour (BAND_GOOD/WARN/BAD) for a utilisation between 0 and 1."""
+    low, high = UTIL_IDEAL_RANGE
+    if low <= value <= high:
+        return BAND_GOOD
+    if UTIL_LOW_LIMIT <= value < low:
+        return BAND_WARN
+    return BAND_BAD
+
+
+def wait_band_colour(value):
+    """Band colour (BAND_GOOD/BAD) for an average wait in minutes."""
+    return BAND_GOOD if value < WAIT_LIMIT_MINS else BAND_BAD
+
+
+def _band_fill(colour, alpha=0.3):
+    """``background-color`` CSS for a translucent band colour, for table cells."""
+    r, g, b = (int(colour[i : i + 2], 16) for i in (1, 3, 5))
+    return f"background-color: rgba({r}, {g}, {b}, {alpha})"
 
 # Friendly axis labels for the columns of the model's results
 UTIL_LABELS = {
@@ -383,7 +407,8 @@ def per_run_table(results, metric):
     One row per resource or stage, plus patients seen, and one column per run.
     Row names are the plot labels on one line, and values are formatted as
     percentages, minutes (the unit is in the corner header, to keep the
-    columns narrow on a phone) or patient counts.
+    columns narrow on a phone) or patient counts. Each utilisation or wait
+    cell is shaded with the band colour the charts above use for that value.
 
     Params:
     ------
@@ -406,9 +431,18 @@ def per_run_table(results, metric):
     )
 
     stages = list(labels.values())
-    return table.style.format(
-        "{:.0%}" if metric == "util" else "{:,.1f}", subset=(stages, table.columns)
-    ).format("{:,.0f}", subset=(["Patients seen"], table.columns))
+    band_colour = util_band_colour if metric == "util" else wait_band_colour
+    return (
+        table.style.format(
+            "{:.0%}" if metric == "util" else "{:,.1f}",
+            subset=(stages, table.columns),
+        )
+        .format("{:,.0f}", subset=(["Patients seen"], table.columns))
+        .map(
+            lambda value: _band_fill(band_colour(value)),
+            subset=(stages, table.columns),
+        )
+    )
 
 
 def add_util_bands(fig, orientation):
@@ -432,8 +466,8 @@ def add_util_bands(fig, orientation):
     for band_start, band_end, colour in [
         (low, high, BAND_GOOD),
         (high, 1, BAND_BAD),
-        (0.4, low, BAND_WARN),
-        (0, 0.4, BAND_BAD),
+        (UTIL_LOW_LIMIT, low, BAND_WARN),
+        (0, UTIL_LOW_LIMIT, BAND_BAD),
     ]:
         add_band(
             **{start: band_start, end: band_end},
@@ -445,24 +479,45 @@ def add_util_bands(fig, orientation):
 
 def add_wait_band(fig, orientation):
     """
-    Shade the waits that meet the target (under ``WAIT_LIMIT_MINS``) in green.
+    Shade the waits that meet the target (under ``WAIT_LIMIT_MINS``) in green
+    and those that miss it in red.
+
+    Call this after the traces are added: the red band runs to a little past
+    the largest wait plotted. Plotly's autorange includes shapes, so the band
+    fills to the end of the axis without stretching it.
 
     Params:
     ------
     fig: plotly.graph_objects.Figure
     orientation: str
-        "h" for a horizontal band (waits on the y axis), "v" for a vertical
-        band (waits on the x axis).
+        "h" for horizontal bands (waits on the y axis), "v" for vertical
+        bands (waits on the x axis).
     """
     add_band = fig.add_hrect if orientation == "h" else fig.add_vrect
     start, end = ("y0", "y1") if orientation == "h" else ("x0", "x1")
 
-    add_band(
-        **{start: 0, end: WAIT_LIMIT_MINS},
-        fillcolor=BAND_GOOD,
-        opacity=0.3,
-        line_width=0,
-    )
+    axis = "y" if orientation == "h" else "x"
+    plotted = [WAIT_LIMIT_MINS]
+    for trace in fig.data:
+        values = getattr(trace, axis, None)
+        if values is not None:
+            plotted += [
+                float(value)
+                for value in values
+                if isinstance(value, Number) and value == value  # skip NaN
+            ]
+    top = 1.1 * max(plotted)
+
+    for band_start, band_end, colour in [
+        (0, WAIT_LIMIT_MINS, BAND_GOOD),
+        (WAIT_LIMIT_MINS, top, BAND_BAD),
+    ]:
+        add_band(
+            **{start: band_start, end: band_end},
+            fillcolor=colour,
+            opacity=0.3,
+            line_width=0,
+        )
 
 
 def summarise_results(results):

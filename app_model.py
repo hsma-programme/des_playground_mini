@@ -1032,17 +1032,19 @@ with tab1:
 
                     This needs to be balanced with the utilisation graphs on the left.
 
-                    The green box shows waits of less than two hours. If the bars fall within this range, the number of resources does not need to be changed.
+                    The green box shows waits of less than two hours, and the red box waits of more. If the bars fall within the green range, the number of resources does not need to be changed.
                     """
                 )
 
                 wait_fig_simple = go.Figure()
-                add_wait_band(wait_fig_simple, "h")
 
                 wait_fig_simple.add_bar(
                     x=results.mean().filter(like="wait").index.tolist(),
                     y=results.mean().filter(like="wait").tolist(),
                 )
+                # After the bar, so the red band can run just past the
+                # longest wait
+                add_wait_band(wait_fig_simple, "h")
 
                 wait_fig_simple.update_xaxes(
                     labelalias=WAIT_LABELS,
@@ -1145,7 +1147,7 @@ with tab1:
 
                     This needs to be balanced with the utilisation graphs on the left.
 
-                    The green box shows waits of less than two hours. If the bars fall within this range, the number of resources does not need to be changed.
+                    The green box shows waits of less than two hours, and the red box waits of more. If the bars fall within the green range, the number of resources does not need to be changed.
                     """
                 )
 
