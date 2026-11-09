@@ -39,6 +39,10 @@ from vidigi.utils import EventPosition, ExitPosition, create_event_position_df
 
 EVERY_X_MINUTES = 10
 
+# Longest stretch of a run that is animated. Longer runs are still simulated in
+# full; capping the animation keeps it quick to build and send to the browser.
+MAX_ANIMATION_DAYS = 3
+
 # Where each step of the patient journey is drawn on the animation. Event names
 # must match those logged in model_classes.py; `resource` names the Scenario
 # attribute holding the number of rooms for that step.
@@ -448,7 +452,8 @@ with st.sidebar:
             help=(
                 "Patients arrive at random, so every run turns out a little "
                 "different. Running the simulation several times shows how much of "
-                "what you see is just chance. The animation only shows the first run."
+                "what you see is just chance. The animation only shows the first run "
+                f"(and at most its first {MAX_ANIMATION_DAYS} days)."
             ),
         )
 
@@ -460,6 +465,9 @@ with st.sidebar:
             value=4,
             help="How long each run lasts. Longer runs give steadier results but take longer to compute.",
         )
+
+# Only the start of the first run is animated
+anim_days = min(run_time_days, MAX_ANIMATION_DAYS)
 
 with tab1:
     args = Scenario(
@@ -479,7 +487,9 @@ with tab1:
         This is a virtual emergency department, and **you're in charge of staffing it**.
 
         Choose how many rooms of each type to open in the sidebar, hit run, and watch
-        {run_time_days} days in the ED pass in a few minutes.
+        {f"{run_time_days} days" if anim_days == run_time_days
+         else f"the first {anim_days} of {run_time_days} simulated days"}
+        in the ED pass in a few minutes.
 
         This uses *discrete event simulation* - a technique that allows us to
         <span style="color:#ffe600;font-weight:700">safely try out ideas on a computer before testing them on real patients</span>.
@@ -747,7 +757,7 @@ with tab1:
                 event_position_df=EVENT_POSITION_DF,
                 scenario=args,
                 every_x_time_units=EVERY_X_MINUTES,
-                limit_duration=min(run_time_days * 60 * 24, 60 * 24 * 5),
+                limit_duration=anim_days * 60 * 24,
                 step_snapshot_max=30,
                 wrap_queues_at=10,
                 gap_between_entities=10,
@@ -785,7 +795,7 @@ with tab1:
             queue_sizes = queue_size_over_time(
                 single_log,
                 event_list=list(queue_events),
-                limit_duration=60 * 24 * 5,
+                limit_duration=anim_days * 60 * 24,
                 every_x_time_units=60,
             ).pivot(index="snapshot_time", columns="event", values="count")
 
@@ -837,8 +847,6 @@ with tab1:
 
             # Ticks every 6 hours: day numbers at midnight, times of day between
             tick_labels = ["6am", "12pm", "6pm"]
-            # The animation covers at most the first 5 days
-            anim_days = min(run_time_days, 5)
             ticks = [
                 (
                     d + h / 24,
@@ -899,12 +907,17 @@ with tab1:
             my_bar.progress(100, text="Done")
             loading_box.empty()
 
-            st.caption("""
+            shown_days = (
+                ""
+                if anim_days == run_time_days
+                else f", and only its first {anim_days} of {run_time_days} days"
+            )
+            st.caption(f"""
                 The chart beneath the animation shows how many patients are waiting in each queue, building up as the animation plays.
                 The animation starts playing automatically and loops continuously, pausing briefly on the final frame before restarting.
                 The buttons to the left of the slider below the plot can be used to pause and restart the animation.
                 Clicking on the bar below the plot and dragging your cursor to the left or right allows you to rapidly jump through to a different time in the simulation.
-                Only the first replication of the simulation is shown.
+                Only the first replication of the simulation is shown{shown_days}.
                 """)
 
             # st.download_button(
