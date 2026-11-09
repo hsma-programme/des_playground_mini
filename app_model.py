@@ -26,6 +26,7 @@ from helper_functions import (
     describe_results,
     hide_running,
     metric_with_delta,
+    per_run_table,
     render_looping_plotly_animation,
     summarise_results,
 )
@@ -1090,16 +1091,9 @@ with tab1:
 
                 st.plotly_chart(utilisation_boxplot, width="stretch")
 
-                st.dataframe(
-                    results.filter(like="util", axis=1)
-                    .merge(
-                        results.filter(like="throughput", axis=1),
-                        left_index=True,
-                        right_index=True,
-                    )
-                    .T.rename_axis("Metric", axis=0),
-                    column_config=INDEX_UNPINNED,
-                )
+                # st.table, unlike st.dataframe, wraps the row names on
+                # narrow screens
+                st.table(per_run_table(results, "util"))
 
             with col_res_2:
                 st.subheader("Average Waits")
@@ -1140,16 +1134,7 @@ with tab1:
                 # Add in a box plot showing waits
                 st.plotly_chart(wait_boxplot, width="stretch")
 
-                st.dataframe(
-                    results.filter(like="wait", axis=1)
-                    .merge(
-                        results.filter(like="throughput", axis=1),
-                        left_index=True,
-                        right_index=True,
-                    )
-                    .T.rename_axis("Metric", axis=0),
-                    column_config=INDEX_UNPINNED,
-                )
+                st.table(per_run_table(results, "wait"))
 
     challenge_box.info(challenge_message(total_rooms))
 

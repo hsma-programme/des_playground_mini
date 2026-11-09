@@ -376,6 +376,41 @@ WAIT_LABELS = {
 }
 
 
+def per_run_table(results, metric):
+    """
+    Per-run table of the utilisation or wait results, for ``st.table``.
+
+    One row per resource or stage, plus patients seen, and one column per run.
+    Row names are the plot labels on one line, and values are formatted as
+    percentages, minutes (the unit is in the corner header, to keep the
+    columns narrow on a phone) or patient counts.
+
+    Params:
+    ------
+    results: pandas.DataFrame
+        The model's summary results, one row per run (indexed by ``rep``).
+    metric: str
+        "util" or "wait".
+
+    Returns:
+    -------
+    pandas.io.formats.style.Styler
+    """
+    labels = UTIL_LABELS if metric == "util" else WAIT_LABELS
+    labels = {col: label.replace("<br>", " ") for col, label in labels.items()}
+    table = results[list(labels) + ["09_throughput"]].T
+    table.columns = [f"Run {rep}" for rep in table.columns]
+    table = table.rename(index={**labels, "09_throughput": "Patients seen"})
+    table = table.rename_axis(
+        "Utilisation" if metric == "util" else "Average wait (minutes)", axis=0
+    )
+
+    stages = list(labels.values())
+    return table.style.format(
+        "{:.0%}" if metric == "util" else "{:,.1f}", subset=(stages, table.columns)
+    ).format("{:,.0f}", subset=(["Patients seen"], table.columns))
+
+
 def add_util_bands(fig, orientation):
     """
     Shade a plotly figure by how good a utilisation level is.
