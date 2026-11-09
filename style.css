@@ -400,7 +400,7 @@ section[data-testid="stSidebar"][aria-expanded="true"] {
 	they sit in (set in app_model.py):
 	- reflow_stack_*: one item per line (the utilisation / wait plot pairs)
 	- reflow_halves_*: two per line (summary metrics, preset buttons)
-	- reflow_thirds_*: three per line (room-count cards) */
+	- reflow_thirds_*: three per line, or two on a phone (room-count cards) */
 @media (max-width: 1299.98px) {
 	[class*="st-key-reflow_"] [data-testid="stHorizontalBlock"] {
 		flex-wrap: wrap;
@@ -416,6 +416,33 @@ section[data-testid="stSidebar"][aria-expanded="true"] {
 	}
 	[class*="st-key-reflow_thirds_"] [data-testid="stColumn"] {
 		min-width: calc(33.333% - 1rem);
+	}
+}
+@media (max-width: 639.98px) {
+	/* Small cards, so two per line on a phone rather than Streamlit's one. */
+	[class*="st-key-reflow_thirds_"] [data-testid="stColumn"] {
+		min-width: calc(50% - 1rem);
+	}
+	/* Room cards are narrow at that size: tighter padding and smaller labels,
+		whole words only, and let a card grow past its fixed 100px height when
+		a label needs another line (rather than scroll inside the card). The
+		fixed height is set on both the card and its wrapper (as flex-basis).
+		overflow: visible stops the card scrolling by the few pixels of
+		Streamlit's markdown bottom margin when a label takes three lines. */
+	[data-testid="stLayoutWrapper"]:has(> [class*="st-key-room_card_"]) {
+		flex: 0 0 auto;
+	}
+	[class*="st-key-room_card_"] {
+		flex: 0 0 auto;
+		height: auto !important;
+		min-height: 100px;
+		padding: 0.5rem;
+		overflow: visible;
+	}
+	.room-label {
+		font-size: 0.8rem;
+		overflow-wrap: normal;
+		word-break: normal;
 	}
 }
 
