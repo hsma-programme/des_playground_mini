@@ -19,6 +19,7 @@ import numpy as np
 from helper_functions import (
     UTIL_LABELS,
     WAIT_LABELS,
+    WAIT_LIMIT_MINS,
     add_logo,
     add_mobile_nav,
     add_util_bands,
@@ -1008,6 +1009,8 @@ with tab1:
                         text="Utilisation of Resources - Average Across Simulation Runs",
                         automargin=True,
                         yref="paper",
+                        # Gap between the title and the plot's top tick label
+                        pad=dict(b=16),
                     ),
                 )
                 util_fig_simple.update_yaxes(
@@ -1048,8 +1051,17 @@ with tab1:
                     # they would overlap (narrow screens)
                 )
                 # wait_fig_simple.data = wait_fig_simple.data[::-1]
+                # 10% headroom above the tallest bar (or the green band), as the
+                # utilisation plot has, so the bars don't run into the title
                 wait_fig_simple.update_yaxes(
-                    title_text="Wait for Treatment Stage<br>(Minutes)"
+                    title_text="Wait for Treatment Stage<br>(Minutes)",
+                    range=[
+                        0,
+                        1.1
+                        * max(
+                            results.mean().filter(like="wait").max(), WAIT_LIMIT_MINS
+                        ),
+                    ],
                 )
 
                 wait_fig_simple.update_layout(
@@ -1057,6 +1069,8 @@ with tab1:
                         text="Waits at Each Step - Average Across Simulation Runs",
                         automargin=True,
                         yref="paper",
+                        # Gap between the title and the plot's top tick label
+                        pad=dict(b=16),
                     )
                 )
 
