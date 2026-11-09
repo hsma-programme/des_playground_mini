@@ -474,4 +474,8 @@ select.mobile-nav,
 	select.mobile-nav {
 		font-size: 0.95rem;
 	}
+	/* Smaller run button text. */
+	.st-key-animate_button button p {
+		font-size: 1rem !important;
+	}
 }
