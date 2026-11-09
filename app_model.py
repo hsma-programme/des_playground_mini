@@ -20,6 +20,7 @@ from helper_functions import (
     UTIL_LABELS,
     WAIT_LABELS,
     add_logo,
+    add_mobile_nav,
     add_util_bands,
     add_wait_band,
     describe_results,
@@ -344,6 +345,9 @@ st.markdown(
 
 gc.collect()
 
+# Dropdown in place of the tab pills on mobile (shown by style.css)
+add_mobile_nav(short_labels={"Compare Scenario Outputs": "Compare"})
+
 tab1, tab2 = st.tabs(["Simulate", "Compare Scenario Outputs"])
 
 with st.sidebar:
@@ -515,7 +519,9 @@ with tab1:
         "Not sure where to start? Try a preset - it sets the sliders and runs the simulation for you."
     )
     # Understaffed and Balanced are slightly narrower to leave room for the longer last label
-    preset_cols = st.columns([1, 0.9, 0.9, 1.2])
+    preset_cols = st.container(key="reflow_halves_presets").columns(
+        [1, 0.9, 0.9, 1.2]
+    )
     for preset_col, preset_name in zip(preset_cols, PRESETS):
         preset_col.button(
             f"{preset_name} ({preset_total_rooms(preset_name)} rooms)",
@@ -665,8 +671,11 @@ with tab1:
             "🛏️ Trauma stabilisation": n_trauma,
             "🤕 Trauma treatment": n_cubicles_2,
         }
+        # The keyed containers here and below let style.css reflow these rows
+        # onto more lines on narrower screens
         for room_col, (room_label, room_count) in zip(
-            st.columns(len(room_counts)), room_counts.items()
+            st.container(key="reflow_thirds_rooms").columns(len(room_counts)),
+            room_counts.items(),
         ):
             with room_col.container(
                 border=True, height=100, key=f"room_card_{room_label}"
@@ -677,7 +686,9 @@ with tab1:
                     unsafe_allow_html=True,
                 )
 
-        col_seen, col_util, col_wait, col_longest = st.columns(4)
+        col_seen, col_util, col_wait, col_longest = st.container(
+            key="reflow_halves_metrics"
+        ).columns(4)
 
         metric_with_delta(
             col_seen,
@@ -942,7 +953,9 @@ with tab1:
         )
 
         with tab_playground_results_2:
-            col_res_a, col_res_b = st.columns([1, 1])
+            col_res_a, col_res_b = st.container(key="reflow_stack_simple").columns(
+                [1, 1]
+            )
 
             with col_res_a:
                 # util_fig_simple = px.bar(results.mean().filter(like="util"), opacity=0.5)
@@ -1030,7 +1043,9 @@ with tab1:
                         Each dot indicates a single model run. The number of runs can be increased under the advanced options.
                         """)
 
-            col_res_1, col_res_2 = st.columns(2)
+            col_res_1, col_res_2 = st.container(
+                key="reflow_stack_advanced"
+            ).columns(2)
 
             with col_res_1:
                 st.subheader("Average Utilisation")
@@ -1187,7 +1202,9 @@ with tab2:
             #             st.write(
             # all_run_results.groupby('Model Run').median().T.reset_index(drop=False).melt(id_vars="index", var_name="model_run"),                    x="variable",
             #             )
-            col_x, col_y = st.columns(2)
+            col_x, col_y = st.container(
+                key="reflow_stack_compare_simple"
+            ).columns(2)
 
             with col_x:
                 st.subheader("Utilisation")
@@ -1260,7 +1277,9 @@ with tab2:
         # Repeat but with boxplots instead so variability within model runs can be
         # better explored
         with scenario_tab_2:
-            col_res_1, col_res_2 = st.columns(2)
+            col_res_1, col_res_2 = st.container(
+                key="reflow_stack_compare_advanced"
+            ).columns(2)
 
             with col_res_1:
                 st.subheader("Utilisation")
@@ -1332,7 +1351,9 @@ with tab2:
                 # Add in a box plot showing waits
                 st.plotly_chart(all_run_wait_box, width="stretch")
 
-            col_res_3, col_res_4 = st.columns(2)
+            col_res_3, col_res_4 = st.container(
+                key="reflow_stack_compare_throughput"
+            ).columns(2)
 
             with col_res_3:
                 st.subheader("Throughput")
