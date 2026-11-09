@@ -1151,7 +1151,8 @@ with tab1:
 # Create area for exploring all session results
 #################################################
 with tab2:
-    if len(st.session_state["session_results"]) > 0:
+    # Only worth showing once there are at least two scenarios to compare
+    if len(st.session_state["session_results"]) >= 2:
         all_run_results = pd.concat(st.session_state["session_results"])
 
         # "Scenario 2 (Balanced)" / "Scenario 3 (Custom)" for each model run
@@ -1457,9 +1458,19 @@ with tab2:
 
             del all_run_results
             gc.collect()
+    # In the red st.info box (as for the challenge on the Simulate tab) so they
+    # read as a call to action
+    elif len(st.session_state["session_results"]) == 1:
+        st.info(
+            "You've run one scenario so far. Change the settings in the sidebar "
+            "(or try another preset on the 'Simulate' tab) and run the simulation "
+            "again to compare your scenarios here."
+        )
     else:
-        st.markdown(
-            "No scenarios have been run yet. Go to the 'Simulate' tab and run the simulation."
+        st.info(
+            "No scenarios have been run yet. Go to the 'Simulate' tab and run the "
+            "simulation, then run it again with different settings to compare "
+            "your scenarios here."
         )
 
 #################################################
