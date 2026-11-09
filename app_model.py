@@ -17,6 +17,8 @@ import plotly.graph_objects as go
 import streamlit as st
 import numpy as np
 from helper_functions import (
+    BOX_HOVER_DATA,
+    HOVER_NAMES,
     UTIL_LABELS,
     WAIT_LABELS,
     WAIT_LIMIT_MINS,
@@ -29,8 +31,11 @@ from helper_functions import (
     metric_with_delta,
     per_run_table,
     render_looping_plotly_animation,
+    runs_long,
     scenario_breakdown_table,
     scenario_settings_table,
+    set_bar_hover,
+    set_box_hover,
     summarise_results,
 )
 from model_classes import Scenario, multiple_replications
@@ -1054,10 +1059,13 @@ with tab1:
                 util_fig_simple = go.Figure()
                 add_util_bands(util_fig_simple, "h")
 
+                util_means = results.mean().filter(like="util")
                 util_fig_simple.add_bar(
-                    x=results.mean().filter(like="util").index.tolist(),
-                    y=results.mean().filter(like="util").tolist(),
+                    x=util_means.index.tolist(),
+                    y=util_means.tolist(),
+                    customdata=[[HOVER_NAMES[col]] for col in util_means.index],
                 )
+                set_bar_hover(util_fig_simple, "util", "y", "Average across runs")
 
                 util_fig_simple.update_layout(
                     yaxis_tickformat=".0%",
@@ -1094,10 +1102,13 @@ with tab1:
 
                 wait_fig_simple = go.Figure()
 
+                wait_means = results.mean().filter(like="wait")
                 wait_fig_simple.add_bar(
-                    x=results.mean().filter(like="wait").index.tolist(),
-                    y=results.mean().filter(like="wait").tolist(),
+                    x=wait_means.index.tolist(),
+                    y=wait_means.tolist(),
+                    customdata=[[HOVER_NAMES[col]] for col in wait_means.index],
                 )
+                set_bar_hover(wait_fig_simple, "wait", "y", "Average across runs")
                 # After the bar, so the red band can run just past the
                 # longest wait
                 add_wait_band(wait_fig_simple, "h")
@@ -1163,18 +1174,17 @@ with tab1:
                 )
 
                 utilisation_boxplot = px.box(
-                    results.reset_index()
-                    .melt(id_vars="rep")
-                    .set_index("variable")
-                    .filter(like="util", axis=0)
-                    .reset_index(),
+                    runs_long(results, "util"),
                     y="variable",
                     x="value",
                     points="all",
+                    custom_data=BOX_HOVER_DATA,
                     range_x=[0, 1],
                 )
 
                 add_util_bands(utilisation_boxplot, "v")
+
+                set_box_hover(utilisation_boxplot, "util")
 
                 utilisation_boxplot.update_yaxes(
                     labelalias=UTIL_LABELS,
@@ -1208,15 +1218,14 @@ with tab1:
                 )
 
                 wait_boxplot = px.box(
-                    results.reset_index()
-                    .melt(id_vars="rep")
-                    .set_index("variable")
-                    .filter(like="wait", axis=0)
-                    .reset_index(),
+                    runs_long(results, "wait"),
                     y="variable",
                     x="value",
                     points="all",
+                    custom_data=BOX_HOVER_DATA,
                 )
+
+                set_box_hover(wait_boxplot, "wait")
 
                 wait_boxplot.update_yaxes(
                     labelalias=WAIT_LABELS,
@@ -1324,17 +1333,25 @@ with tab2:
                     .T.filter(like="util", axis=0)
                     .reset_index(drop=False)
                     .melt(id_vars="index", var_name="model_run")
-                    .assign(model_run=lambda d: d["model_run"].map(scenario_labels)),
+                    .assign(
+                        model_run=lambda d: d["model_run"].map(scenario_labels),
+                        name=lambda d: d["index"].map(HOVER_NAMES),
+                    ),
                     x="value",
                     y="index",
                     barmode="group",
                     color="model_run",
                     category_orders={"model_run": scenario_order},
+                    custom_data=["name"],
                     range_x=[0, 1],
                     height=800,
                 )
 
                 add_util_bands(all_run_util_bar, "v")
+
+                set_bar_hover(
+                    all_run_util_bar, "util", "x", "Median across runs", by_scenario=True
+                )
 
                 all_run_util_bar.update_yaxes(
                     labelalias=UTIL_LABELS,
@@ -1359,13 +1376,21 @@ with tab2:
                     .T.filter(like="wait", axis=0)
                     .reset_index(drop=False)
                     .melt(id_vars="index", var_name="model_run")
-                    .assign(model_run=lambda d: d["model_run"].map(scenario_labels)),
+                    .assign(
+                        model_run=lambda d: d["model_run"].map(scenario_labels),
+                        name=lambda d: d["index"].map(HOVER_NAMES),
+                    ),
                     x="value",
                     y="index",
                     barmode="group",
                     color="model_run",
                     category_orders={"model_run": scenario_order},
+                    custom_data=["name"],
                     height=800,
+                )
+
+                set_bar_hover(
+                    all_run_wait_bar, "wait", "x", "Median across runs", by_scenario=True
                 )
 
                 all_run_wait_bar.update_yaxes(
@@ -1394,22 +1419,20 @@ with tab2:
                 st.subheader("Utilisation")
 
                 all_run_util_box = px.box(
-                    all_run_results.reset_index()
-                    .melt(id_vars=["Model Run", "rep"])
-                    .set_index("variable")
-                    .filter(like="util", axis=0)
-                    .reset_index()
-                    .assign(Scenario=lambda d: d["Model Run"].map(scenario_labels)),
+                    runs_long(all_run_results, "util", scenario_labels),
                     y="variable",
                     x="value",
                     color="Scenario",
                     category_orders={"Scenario": scenario_order},
                     points="all",
+                    custom_data=BOX_HOVER_DATA,
                     range_x=[0, 1],
                     height=800,
                 )
 
                 add_util_bands(all_run_util_box, "v")
+
+                set_box_hover(all_run_util_box, "util", by_scenario=True)
 
                 all_run_util_box.update_yaxes(
                     labelalias=UTIL_LABELS,
@@ -1431,19 +1454,17 @@ with tab2:
                 st.subheader("Waits")
 
                 all_run_wait_box = px.box(
-                    all_run_results.reset_index()
-                    .melt(id_vars=["Model Run", "rep"])
-                    .set_index("variable")
-                    .filter(like="wait", axis=0)
-                    .reset_index()
-                    .assign(Scenario=lambda d: d["Model Run"].map(scenario_labels)),
+                    runs_long(all_run_results, "wait", scenario_labels),
                     y="variable",
                     x="value",
                     color="Scenario",
                     category_orders={"Scenario": scenario_order},
                     points="all",
+                    custom_data=BOX_HOVER_DATA,
                     height=800,
                 )
+
+                set_box_hover(all_run_wait_box, "wait", by_scenario=True)
 
                 all_run_wait_box.update_yaxes(
                     labelalias=WAIT_LABELS,
@@ -1460,58 +1481,48 @@ with tab2:
                 # Add in a box plot showing waits
                 st.plotly_chart(all_run_wait_box, width="stretch")
 
-            col_res_3, col_res_4 = st.container(
-                key="reflow_stack_compare_throughput"
-            ).columns(2)
+            # Full width: it has no partner plot to share a row with
+            st.subheader("Throughput")
+            st.markdown(
+                """
+                This is the percentage of clients who entered the system
+                who had left by the time the model stopped running.
+                Higher values are better - low values suggest a big backlog of people getting stuck in the system
+                for a long time.
+                """
+            )
+            all_run_results["perc_throughput"] = (
+                all_run_results["09_throughput"] / all_run_results["00_arrivals"]
+            )
 
-            with col_res_3:
-                st.subheader("Throughput")
-                st.markdown(
-                    """
-                    This is the percentage of clients who entered the system
-                    who had left by the time the model stopped running.
-                    Higher values are better - low values suggest a big backlog of people getting stuck in the system
-                    for a long time.
-                    """
-                )
-                all_run_results["perc_throughput"] = (
-                    all_run_results["09_throughput"] / all_run_results["00_arrivals"]
-                )
+            all_results_throughput_box = px.box(
+                runs_long(all_run_results, "perc_throughput", scenario_labels),
+                y="variable",
+                x="value",
+                color="Scenario",
+                category_orders={"Scenario": scenario_order},
+                points="all",
+                custom_data=BOX_HOVER_DATA,
+                height=800,
+            )
 
-                all_results_throughput_box = px.box(
-                    all_run_results.reset_index()
-                    .melt(id_vars=["Model Run", "rep"])
-                    .set_index("variable")
-                    .filter(like="perc_throughput", axis=0)
-                    .reset_index()
-                    .assign(Scenario=lambda d: d["Model Run"].map(scenario_labels)),
-                    y="variable",
-                    x="value",
-                    color="Scenario",
-                    category_orders={"Scenario": scenario_order},
-                    points="all",
-                    height=800,
-                )
+            all_results_throughput_box.update_layout(
+                xaxis_tickformat=".0%", legend_title_text="Scenario"
+            )
 
-                all_results_throughput_box.update_layout(
-                    xaxis_tickformat=".0%", legend_title_text="Scenario"
-                )
+            set_box_hover(all_results_throughput_box, "throughput", by_scenario=True)
 
-                all_results_throughput_box.update_yaxes(
-                    title_text="",
-                    autorange="reversed",
-                    labelalias={
-                        "perc_throughput": "Throughput (% of arrivals<br>that exit before model end)"
-                    },
-                )
-                all_results_throughput_box.update_xaxes(title_text="% Throughput")
+            all_results_throughput_box.update_yaxes(
+                title_text="",
+                autorange="reversed",
+                labelalias={
+                    "perc_throughput": "Throughput (% of arrivals<br>that exit before model end)"
+                },
+            )
+            all_results_throughput_box.update_xaxes(title_text="% Throughput")
 
-                # Add in a box plot showing waits
-                st.plotly_chart(all_results_throughput_box, width="stretch")
+            st.plotly_chart(all_results_throughput_box, width="stretch")
 
-                # st.write(all_run_results.filter(like="wait", axis=1)
-                #             .merge(all_run_results.filter(like="throughput", axis=1),
-                #                 left_index=True, right_index=True))
         with scenario_tab_3:
             st.markdown(
                 "The median of each result across the runs of each scenario. "

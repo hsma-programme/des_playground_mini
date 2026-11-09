@@ -1,6 +1,7 @@
 import json
 from numbers import Number
 import urllib.request as request
+import numpy as np
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -398,6 +399,153 @@ WAIT_LABELS = {
     "06a_trauma_wait": "Stabilisation",
     "07a_treatment_wait(trauma)": "Treatment<br>(trauma)",
 }
+
+
+# One-line names of the results, for chart tooltips
+HOVER_NAMES = {
+    **{col: label.replace("<br>", " ") for col, label in UTIL_LABELS.items()},
+    **{col: label.replace("<br>", " ") for col, label in WAIT_LABELS.items()},
+    "perc_throughput": "Throughput",
+}
+
+
+def _hover_number(metric, ref):
+    """
+    Tooltip text for a bare value, e.g. "%{x:.0%}" or "%{x:,.1f} min".
+
+    ``metric`` is "util", "wait" or "throughput"; ``ref`` is the plotly
+    template variable holding the value, e.g. "x" or "customdata[2]".
+    """
+    if metric == "wait":
+        return f"%{{{ref}:,.1f}} min"
+    return f"%{{{ref}:.0%}}"
+
+
+def _hover_range(metric, low_ref, high_ref):
+    """Tooltip text for a range, e.g. "%{a:.0%} to %{b:.0%}" or "%{a:,.1f} to %{b:,.1f} min"."""
+    if metric == "wait":
+        return f"%{{{low_ref}:,.1f}} to %{{{high_ref}:,.1f}} min"
+    return f"{_hover_number(metric, low_ref)} to {_hover_number(metric, high_ref)}"
+
+
+def _hover_value(metric, ref):
+    """Tooltip text for one value in words, e.g. "in use %{x:.0%} of the time"."""
+    number = _hover_number(metric, ref)
+    if metric == "util":
+        return f"in use {number} of the time"
+    if metric == "wait":
+        return f"average wait {number}"
+    return f"{number} of arrivals seen"
+
+
+def set_bar_hover(fig, metric, value_axis, note, by_scenario=False):
+    """
+    Plain-English tooltips for a bar chart of one value per result.
+
+    Each bar's ``customdata[0]`` must be its one-line name (``HOVER_NAMES``).
+
+    Params:
+    ------
+    fig: plotly.graph_objects.Figure
+    metric: str
+        "util" or "wait".
+    value_axis: str
+        "x" or "y": the axis the values are on.
+    note: str
+        What the value is, e.g. "Average across runs".
+    by_scenario: bool
+        True if each trace is a scenario, to put its name at the top.
+    """
+    fig.update_traces(
+        hovertemplate=("<b>%{fullData.name}</b><br>" if by_scenario else "")
+        + "%{customdata[0]}: "
+        + _hover_value(metric, value_axis)
+        + f"<br><i>{note}</i><extra></extra>",
+        selector=dict(type="bar"),
+    )
+
+
+def runs_long(results, like, scenario_labels=None):
+    """
+    The results with one row per run and result, for the box plots.
+
+    Params:
+    ------
+    results: pandas.DataFrame
+        One row per run (indexed by ``rep``); with ``scenario_labels``, every
+        scenario's runs with a "Model Run" column.
+    like: str
+        Keep the results whose column names contain this, e.g. "util".
+    scenario_labels: dict or None
+        Name of each model run, as for ``scenario_breakdown_table``.
+
+    Returns:
+    -------
+    pandas.DataFrame
+        Columns rep, variable (the result's column name), value and name (its
+        ``HOVER_NAMES`` label), then min, q1, median, q3 and max of that
+        result across the runs of the same scenario (the statistics its box
+        is drawn from), plus "Model Run" and Scenario with ``scenario_labels``.
+    """
+    group = ["Model Run"] if scenario_labels else []
+    long = results.reset_index().melt(
+        id_vars=["rep", *group],
+        value_vars=[col for col in results.columns if like in col],
+    )
+    long["name"] = long["variable"].map(HOVER_NAMES)
+
+    values = long.groupby([*group, "variable"])["value"]
+    long["min"] = values.transform("min")
+    long["max"] = values.transform("max")
+    # Plotly's default ("linear") quartiles sit at position p * n - 0.5 in the
+    # sorted values, which is numpy's "hazen" method; pandas' default differs,
+    # and the tooltip would then disagree with the box drawn
+    for stat, p in [("q1", 0.25), ("median", 0.5), ("q3", 0.75)]:
+        long[stat] = values.transform(
+            lambda v, p=p: np.quantile(v, p, method="hazen")
+        )
+
+    if scenario_labels:
+        long["Scenario"] = long["Model Run"].map(scenario_labels)
+    return long
+
+
+# Columns of ``runs_long`` to pass to px.box as custom_data for ``set_box_hover``
+BOX_HOVER_DATA = ["name", "rep", "median", "q1", "q3", "min", "max"]
+
+
+def set_box_hover(fig, metric, by_scenario=False):
+    """
+    Short tooltips for a box plot of each run's results (values on the x axis).
+
+    The default tooltips pop up a separate label for each of the box's
+    statistics at once. Instead only the dots (one per run) have a tooltip,
+    giving that run's value and, below it, the median, quartiles and range
+    the box is drawn from. Pass ``custom_data=BOX_HOVER_DATA`` to px.box.
+
+    Params:
+    ------
+    fig: plotly.graph_objects.Figure
+    metric: str
+        "util", "wait" or "throughput".
+    by_scenario: bool
+        True if each trace is a scenario, to put its name at the top.
+    """
+    fig.update_traces(
+        hoveron="points",
+        hovertemplate=("<b>%{fullData.name}</b><br>" if by_scenario else "")
+        + "%{customdata[0]}, run %{customdata[1]}: "
+        + _hover_value(metric, "x")
+        + "<br><br><i>Across all runs</i>"
+        + "<br>Median: "
+        + _hover_number(metric, "customdata[2]")
+        + "<br>Quartiles: "
+        + _hover_range(metric, "customdata[3]", "customdata[4]")
+        + "<br>Range: "
+        + _hover_range(metric, "customdata[5]", "customdata[6]")
+        + "<extra></extra>",
+        selector=dict(type="box"),
+    )
 
 
 def per_run_table(results, metric):
