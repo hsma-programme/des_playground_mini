@@ -349,6 +349,12 @@ gc.collect()
 # Dropdown in place of the tab pills on mobile (shown by style.css)
 add_mobile_nav(short_labels={"Compare Scenario Outputs": "Compare"})
 
+# Holds the full-screen progress overlay while a run is in progress (filled in
+# the Simulate tab below). Created outside the tabs because the sidebar can
+# start a run from either tab, and anything inside a tab is hidden while
+# another tab is open. Takes no space while empty.
+loading_box = st.empty()
+
 tab1, tab2 = st.tabs(["Simulate", "Compare Scenario Outputs"])
 
 with st.sidebar:
@@ -535,7 +541,6 @@ with tab1:
     if button_run_pressed:
         # Progress card shown in a full-screen overlay (styled in style.css) until
         # the animation has been built; cleared with loading_box.empty() below
-        loading_box = st.empty()
         with (
             loading_box.container(key="loading_overlay"),
             st.container(key="loading_card"),
