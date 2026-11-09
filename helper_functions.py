@@ -208,7 +208,10 @@ def render_looping_plotly_animation(
 
     # The figure has a fixed pixel width. If the page is narrower than that
     # (narrow window, wide sidebar), shrink the whole figure to fit instead of
-    # showing scrollbars, and resize the iframe to match.
+    # showing scrollbars, and resize the iframe to match. Streamlit also gives
+    # the element container around the iframe a fixed height, as both `height`
+    # and `flex-basis` (the one that counts in its flex column), so resize that
+    # too, or the space below the shrunken figure stays empty.
     fig_width = fig.layout.width
     if fig_width is not None:
         fit_script = """
@@ -219,8 +222,15 @@ def render_looping_plotly_animation(
         document.documentElement.style.overflow = 'hidden';
         var s = Math.min(1, window.innerWidth / figW);
         document.body.style.zoom = s;
-        if (window.frameElement) {
-            window.frameElement.style.height = Math.ceil(figH * s) + 10 + 'px';
+        var frame = window.frameElement;
+        if (frame) {
+            var h = Math.ceil(figH * s) + 10 + 'px';
+            frame.style.height = h;
+            var box = frame.closest('[data-testid="stElementContainer"]');
+            if (box) {
+                box.style.height = h;
+                box.style.flexBasis = h;
+            }
         }
     }
     window.addEventListener('resize', fit);
