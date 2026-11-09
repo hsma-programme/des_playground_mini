@@ -1,7 +1,6 @@
 import json
 import urllib.request as request
 import streamlit as st
-import streamlit.components.v1 as components
 
 
 def read_file_contents(file_name):
@@ -77,7 +76,7 @@ def render_looping_plotly_animation(
     Streamlit's ``st.plotly_chart`` cannot autoplay (or loop) a Plotly frame
     animation, so instead the figure is exported to a self-contained HTML
     document (plotly.js pulled from the CDN) and embedded via
-    ``st.components.v1.html``. This keeps working under stlite because the
+    ``st.iframe``. This keeps working under stlite because the
     iframe only needs the browser plus a CDN - no Pyodide involvement.
 
     Plotly's own ``auto_play=True`` starts the animation once ``newPlot``
@@ -230,7 +229,7 @@ def render_looping_plotly_animation(
 """ % (int(fig_width), int(height) - 10)
         html = html.replace("</body>", fit_script + "</body>", 1)
 
-    components.html(html, height=height, scrolling=True)
+    st.iframe(html, height=height)
 
 
 # Targets used by the playground (and described in its explanatory text)
