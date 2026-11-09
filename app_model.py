@@ -246,6 +246,10 @@ def scenario_label(run_number, params_row):
     return f"Scenario {run_number} ({matching_preset(run_params) or 'Custom'})"
 
 
+# Results tables: let the long index labels scroll away with the other columns,
+# so on a phone the scenario columns aren't hidden behind a pinned index.
+INDEX_UNPINNED = {"_index": st.column_config.Column(pinned=False)}
+
 SETTING_COLUMNS = list(PARAM_COLUMNS) + [
     "Random Seed",
     "Run Length\n(days)",
@@ -1071,14 +1075,15 @@ with tab1:
 
                 st.plotly_chart(utilisation_boxplot, width="stretch")
 
-                st.write(
+                st.dataframe(
                     results.filter(like="util", axis=1)
                     .merge(
                         results.filter(like="throughput", axis=1),
                         left_index=True,
                         right_index=True,
                     )
-                    .T.rename_axis("Metric", axis=0)
+                    .T.rename_axis("Metric", axis=0),
+                    column_config=INDEX_UNPINNED,
                 )
 
             with col_res_2:
@@ -1120,14 +1125,15 @@ with tab1:
                 # Add in a box plot showing waits
                 st.plotly_chart(wait_boxplot, width="stretch")
 
-                st.write(
+                st.dataframe(
                     results.filter(like="wait", axis=1)
                     .merge(
                         results.filter(like="throughput", axis=1),
                         left_index=True,
                         right_index=True,
                     )
-                    .T.rename_axis("Metric", axis=0)
+                    .T.rename_axis("Metric", axis=0),
+                    column_config=INDEX_UNPINNED,
                 )
 
     challenge_box.info(challenge_message(total_rooms))
@@ -1169,6 +1175,7 @@ with tab2:
             ).rename_axis("Parameter", axis=0),
             hide_index=False,
             width="stretch",
+            column_config=INDEX_UNPINNED,
         )
         del parameter_scenario_df
 
@@ -1429,6 +1436,7 @@ with tab2:
                 hide_index=False,
                 width="stretch",
                 height=700,
+                column_config=INDEX_UNPINNED,
             )
             del output_scenario_df
 

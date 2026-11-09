@@ -131,12 +131,23 @@ section[data-testid="stSidebar"] hr {
 	position: relative;
 	justify-content: center;
 }
-/* The sidebar can't be minimised (it breaks the logo), so hide the collapse
-	button and the re-expand control. */
+/* The sidebar can't be minimised on desktop, so hide the collapse button
+	(it is shown again on mobile, further down). */
 [data-testid="stSidebarHeader"] [data-testid="stSidebarCollapseButton"],
-[data-testid="stExpandSidebarButton"],
 [data-testid="stSidebarCollapsedControl"] {
 	display: none;
+}
+/* The re-expand button is left visible: Streamlit only renders it while the
+	sidebar is shut, which happens on mobile, and the sidebar can stay shut if the
+	screen then widens (e.g. a tablet rotated). While it's shut, Streamlit repeats
+	the logo in the header, over the navbar title, so hide that copy and start
+	the title after the button. */
+[data-testid="stHeaderLogo"] {
+	display: none;
+}
+[data-testid="stApp"]:has([data-testid="stExpandSidebarButton"])
+	[role="tablist"]:not([data-testid="stTabPanel"] *) {
+	padding-left: 3.25rem;
 }
 /* Page title in the HSMA font. */
 h1 {
@@ -144,7 +155,7 @@ h1 {
 	font-weight: 400;
 }
 [data-testid="stSidebarLogo"],
-img.stLogo {
+[data-testid="stSidebar"] img.stLogo {
 	height: 11rem !important;
 	max-height: 11rem !important;
 	margin: 0 auto;
@@ -364,4 +375,21 @@ section[data-testid="stSidebar"][aria-expanded="true"] {
 .room-count {
     margin-top: 0.15rem;
     font-weight: 700;
+}
+
+/* ---- Mobile (Streamlit's own breakpoint: under 768px the sidebar is an overlay) ---- */
+@media (max-width: 767.98px) {
+	/* The sidebar is an overlay here, so let it be closed too. */
+	[data-testid="stSidebarHeader"] [data-testid="stSidebarCollapseButton"] {
+		display: flex;
+	}
+	/* Shrink the navbar text a little so less sideways scrolling is needed. */
+	[role="tablist"]:not([data-testid="stTabPanel"] *)::before {
+		font-size: 1.4rem;
+		margin-right: 0.75rem;
+	}
+	[data-testid="stTab"]:not([data-testid="stTabPanel"] *),
+	[data-testid="stTab"]:not([data-testid="stTabPanel"] *) p {
+		font-size: 0.95rem !important;
+	}
 }
