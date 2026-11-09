@@ -662,12 +662,18 @@ with tab1:
 
         st.divider()
 
-        # Recap of the choice that was run, and whether it was a preset
+        # Recap of the choice that was run, and whether it was a preset. Headed
+        # and captioned so the room cards don't read as results.
+        st.subheader("Your scenario")
         chosen_preset = matching_preset(
             {key: st.session_state[key] for key in SLIDER_DEFAULTS}
         )
         st.markdown(
             f"**Run type:** {f'Preset - {chosen_preset}' if chosen_preset else 'Custom'}"
+        )
+        st.caption(
+            "The number of rooms of each type you chose in the sidebar. These are "
+            "the settings for this run, not results."
         )
         room_counts = {
             "🚦 Triage": n_triage,
@@ -691,6 +697,23 @@ with tab1:
                     f'<div class="room-count">{room_count}</div>',
                     unsafe_allow_html=True,
                 )
+
+        st.space("small")
+
+        st.subheader("Results")
+        timing = (
+            f" in {sim_seconds:.1f} seconds" if st.session_state["sim_was_run"] else ""
+        )
+        st.markdown(
+            f"Simulated {count(n_reps * run_time_days, 'day')} of emergency department "
+            f"activity ({count(n_reps, 'run')} of {count(run_time_days, 'day')}; "
+            f"{summary['arrivals']:,} patient arrivals){timing}. "
+            + (
+                "The figures below are from that run."
+                if n_reps == 1
+                else f"The figures below are averages across the {n_reps} runs."
+            )
+        )
 
         col_seen, col_util, col_wait, col_longest = st.container(
             key="reflow_halves_metrics"
@@ -731,14 +754,7 @@ with tab1:
             help="The worst average wait at any stage of the process.",
         )
 
-        timing = (
-            f" in {sim_seconds:.1f} seconds" if st.session_state["sim_was_run"] else ""
-        )
-        st.caption(
-            f"Simulated {count(n_reps * run_time_days, 'day')} of emergency department "
-            f"activity ({count(n_reps, 'run')} of {count(run_time_days, 'day')}; "
-            f"{summary['arrivals']:,} patient arrivals){timing}."
-        )
+        st.space("small")
 
         st.markdown(
             describe_results(
@@ -771,6 +787,8 @@ with tab1:
                     f"Everything is in the green with {total_rooms} rooms. "
                     f"Your best is {best_rooms} - can you do it with fewer?"
                 )
+
+        st.space("medium")
 
         with st.container():
             st.markdown(
