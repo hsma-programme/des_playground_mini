@@ -29,6 +29,8 @@ from helper_functions import (
     metric_with_delta,
     per_run_table,
     render_looping_plotly_animation,
+    scenario_breakdown_table,
+    scenario_settings_table,
     summarise_results,
 )
 from model_classes import Scenario, multiple_replications
@@ -321,6 +323,123 @@ def challenge_message(total_rooms):
         message += f" Best so far: **{st.session_state['best_rooms']} rooms**."
     message += f"\n\nTotal rooms in use in your scenario: **{total_rooms}**"
     return message
+
+
+# Card label for each room slider, in the order the cards are shown
+ROOM_LABELS = {
+    "n_triage": "🚦 Triage",
+    "n_reg": "📝 Registration",
+    "n_exam": "🔎 Examination",
+    "n_cubicles_1": "💊 Non-trauma treatment",
+    "n_trauma": "🛏️ Trauma stabilisation",
+    "n_cubicles_2": "🤕 Trauma treatment",
+}
+
+
+def show_room_cards(room_counts, key):
+    """
+    One card per room type showing how many there are.
+
+    ``room_counts`` is keyed by slider key (as ``ROOM_LABELS``). ``key`` names
+    the row; it must start "reflow_thirds_" so style.css reflows the cards on
+    narrow screens, and differ between rows drawn in the same run.
+    """
+    for room_col, (slider_key, room_label) in zip(
+        st.container(key=key).columns(len(ROOM_LABELS)), ROOM_LABELS.items()
+    ):
+        with room_col.container(
+            # style.css styles the cards by this "room_card_" prefix
+            border=True, height=100, key=f"room_card_{key}_{slider_key}"
+        ):
+            st.markdown(
+                f'<div class="room-label">{room_label}</div>'
+                f'<div class="room-count">{room_counts[slider_key]:.0f}</div>',
+                unsafe_allow_html=True,
+            )
+
+
+def show_summary_metrics(summary, previous_summary, key):
+    """
+    The four headline results of a scenario, from ``summarise_results``.
+
+    Each shows its change since ``previous_summary`` (None for no change
+    shown). ``key`` names the row; it must start "reflow_halves_" so style.css
+    reflows the metrics on narrow screens, and differ between rows drawn in
+    the same run.
+    """
+
+    def previous_value(name):
+        return previous_summary[name] if previous_summary else None
+
+    col_seen, col_util, col_wait, col_longest = st.container(key=key).columns(4)
+
+    metric_with_delta(
+        col_seen,
+        ":hospital: **Patients seen**",
+        f"{summary['patients_seen']:,.0f}",
+        summary["patients_seen"],
+        previous_value("patients_seen"),
+        help="Average number of patients who got through the whole process in each run.",
+    )
+    metric_with_delta(
+        col_util,
+        ":bed: **Utilisation in ideal range**",
+        f"{summary['util_in_range']} of {summary['n_util']}",
+        summary["util_in_range"],
+        previous_value("util_in_range"),
+        help="How many resources were busy 65% to 85% of the time, on average.",
+    )
+    metric_with_delta(
+        col_wait,
+        ":clock2: **Waits under 2 hours**",
+        f"{summary['wait_in_range']} of {summary['n_wait']}",
+        summary["wait_in_range"],
+        previous_value("wait_in_range"),
+        help="How many stages kept the average wait under 120 minutes.",
+    )
+    metric_with_delta(
+        col_longest,
+        ":stopwatch: **Longest average wait**",
+        f"{summary['longest_wait']:,.0f} min",
+        summary["longest_wait"],
+        previous_value("longest_wait"),
+        unit=" min",
+        inverse=True,
+        help="The worst average wait at any stage of the process.",
+    )
+
+
+def best_scenario(all_run_results):
+    """
+    The best scenario run so far, by the challenge's rules.
+
+    Most utilisation and wait results in the green, then the fewest rooms,
+    then the shortest longest average wait.
+
+    Returns:
+    -------
+    tuple
+        (model run number, its results rows, its ``summarise_results`` summary,
+        its room counts keyed by slider key)
+    """
+    candidates = []
+    for run, rows in all_run_results.groupby("Model Run"):
+        summary = summarise_results(rows)
+        room_counts = {
+            key: rows.iloc[0][col]
+            for col, key in PARAM_COLUMNS.items()
+            if key in ROOM_LABELS
+        }
+        candidates.append((run, rows, summary, room_counts))
+
+    return min(
+        candidates,
+        key=lambda c: (
+            -(c[2]["util_in_range"] + c[2]["wait_in_range"]),
+            sum(c[3].values()),
+            c[2]["longest_wait"],
+        ),
+    )
 
 
 add_logo()
@@ -658,9 +777,6 @@ with tab1:
 
         summary = summarise_results(results)
 
-        def previous_value(key):
-            return previous_summary[key] if previous_summary else None
-
         st.divider()
 
         # Recap of the choice that was run, and whether it was a preset. Headed
@@ -677,27 +793,14 @@ with tab1:
             "the settings for this run, not results."
         )
         room_counts = {
-            "🚦 Triage": n_triage,
-            "📝 Registration": n_reg,
-            "🔎 Examination": n_exam,
-            "💊 Non-trauma treatment": n_cubicles_1,
-            "🛏️ Trauma stabilisation": n_trauma,
-            "🤕 Trauma treatment": n_cubicles_2,
+            "n_triage": n_triage,
+            "n_reg": n_reg,
+            "n_exam": n_exam,
+            "n_cubicles_1": n_cubicles_1,
+            "n_trauma": n_trauma,
+            "n_cubicles_2": n_cubicles_2,
         }
-        # The keyed containers here and below let style.css reflow these rows
-        # onto more lines on narrower screens
-        for room_col, (room_label, room_count) in zip(
-            st.container(key="reflow_thirds_rooms").columns(len(room_counts)),
-            room_counts.items(),
-        ):
-            with room_col.container(
-                border=True, height=100, key=f"room_card_{room_label}"
-            ):
-                st.markdown(
-                    f'<div class="room-label">{room_label}</div>'
-                    f'<div class="room-count">{room_count}</div>',
-                    unsafe_allow_html=True,
-                )
+        show_room_cards(room_counts, key="reflow_thirds_rooms")
 
         st.space("small")
 
@@ -716,59 +819,12 @@ with tab1:
             )
         )
 
-        col_seen, col_util, col_wait, col_longest = st.container(
-            key="reflow_halves_metrics"
-        ).columns(4)
-
-        metric_with_delta(
-            col_seen,
-            ":hospital: **Patients seen**",
-            f"{summary['patients_seen']:,.0f}",
-            summary["patients_seen"],
-            previous_value("patients_seen"),
-            help="Average number of patients who got through the whole process in each run.",
-        )
-        metric_with_delta(
-            col_util,
-            ":bed: **Utilisation in ideal range**",
-            f"{summary['util_in_range']} of {summary['n_util']}",
-            summary["util_in_range"],
-            previous_value("util_in_range"),
-            help="How many resources were busy 65% to 85% of the time, on average.",
-        )
-        metric_with_delta(
-            col_wait,
-            ":clock2: **Waits under 2 hours**",
-            f"{summary['wait_in_range']} of {summary['n_wait']}",
-            summary["wait_in_range"],
-            previous_value("wait_in_range"),
-            help="How many stages kept the average wait under 120 minutes.",
-        )
-        metric_with_delta(
-            col_longest,
-            ":stopwatch: **Longest average wait**",
-            f"{summary['longest_wait']:,.0f} min",
-            summary["longest_wait"],
-            previous_value("longest_wait"),
-            unit=" min",
-            inverse=True,
-            help="The worst average wait at any stage of the process.",
-        )
+        show_summary_metrics(summary, previous_summary, key="reflow_halves_metrics")
 
         st.space("small")
 
         st.markdown(
-            describe_results(
-                results,
-                room_counts={
-                    "n_triage": n_triage,
-                    "n_reg": n_reg,
-                    "n_exam": n_exam,
-                    "n_cubicles_1": n_cubicles_1,
-                    "n_trauma": n_trauma,
-                    "n_cubicles_2": n_cubicles_2,
-                },
-            ),
+            describe_results(results, room_counts=room_counts),
             unsafe_allow_html=True,
         )
 
@@ -1196,32 +1252,56 @@ with tab2:
         }
         scenario_order = list(scenario_labels.values())
 
+        # The best scenario so far, laid out like the results on the Simulate tab
+        best_run, best_rows, best_summary, best_room_counts = best_scenario(
+            all_run_results
+        )
+        n_green = best_summary["util_in_range"] + best_summary["wait_in_range"]
+        n_measures = best_summary["n_util"] + best_summary["n_wait"]
+        with st.container(border=True):
+            st.subheader(f"🏆 Best scenario so far: {scenario_labels[best_run]}")
+            st.markdown(
+                f"**{n_green} of {n_measures}** utilisation and wait results in the "
+                f"green, using **{sum(best_room_counts.values()):.0f} rooms**."
+            )
+            st.caption(
+                "Chosen as the scenario with the most results in the green, then "
+                "the fewest rooms, then the shortest longest wait."
+            )
+            st.caption(
+                "The number of rooms of each type in this scenario. These are its "
+                "settings, not results."
+            )
+            show_room_cards(best_room_counts, key="reflow_thirds_best_rooms")
+            st.space("small")
+            st.caption("Its results, averaged across its runs:")
+            show_summary_metrics(
+                best_summary, None, key="reflow_halves_best_metrics"
+            )
+            st.space("small")
+            st.markdown(
+                describe_results(best_rows, room_counts=best_room_counts),
+                unsafe_allow_html=True,
+            )
+
+        st.space("small")
+
         st.button("Clear scenarios", key="clear_scenarios", on_click=clear_scenarios)
 
-        st.subheader("Look at Average Results Across Replications")
-        # col_a, col_b = st.columns(2)
+        with st.expander("⚙️ Scenario settings (what you chose, not results)"):
+            st.caption(
+                "The sidebar settings used for each scenario. These are inputs, "
+                "not results."
+            )
+            st.dataframe(
+                scenario_settings_table(
+                    all_run_results, scenario_labels, SETTING_COLUMNS
+                ),
+                width="stretch",
+                column_config=INDEX_UNPINNED,
+            )
 
-        # with col_a:
-        parameter_scenario_df = (
-            all_run_results.groupby("Model Run").median().T.reset_index(drop=False)
-        )
-        parameter_scenario_df.columns = [
-            scenario_labels.get(i, f"Scenario {i}")
-            for i in parameter_scenario_df.columns
-        ]
-        parameter_scenario_df = parameter_scenario_df[
-            ~parameter_scenario_df["Scenario index"].str.contains(r"\d", regex=True)
-        ]
-
-        st.dataframe(
-            parameter_scenario_df.set_index(
-                parameter_scenario_df.columns[0]
-            ).rename_axis("Parameter", axis=0),
-            hide_index=False,
-            width="stretch",
-            column_config=INDEX_UNPINNED,
-        )
-        del parameter_scenario_df
+        st.subheader("Compare results")
 
         scenario_tab_1, scenario_tab_2, scenario_tab_3 = st.tabs(
             ["Simple Metrics", "Advanced Metrics", "Detailed Breakdown"]
@@ -1433,62 +1513,18 @@ with tab2:
                 #             .merge(all_run_results.filter(like="throughput", axis=1),
                 #                 left_index=True, right_index=True))
         with scenario_tab_3:
-            # df['Color'] = np.where(
-            #     (df['Set'] == 'Z') & (df['Type'] == 'A'), 'yellow',
-            #   np.where((df['Set'] == 'Z') & (df['Type'] == 'B'), 'blue',
-            #   np.where((df['Type'] == 'B'), 'purple', 'black')))
-
             st.markdown(
-                "This displays the median value for each metric across all model runs per scenario."
+                "The median of each result across the runs of each scenario. "
+                "Utilisation and wait cells are shaded with the same green, amber "
+                "and red bands as the charts."
             )
-
-            output_scenario_df = all_run_results.groupby("Model Run").median().T
-            output_scenario_df = output_scenario_df.reset_index(drop=False).melt(
-                id_vars="index"
-            )
-            # st.dataframe(output_scenario_df)
-
-            output_scenario_df["formatted_value"] = np.where(
-                output_scenario_df["index"].str.contains("wait|time"),
-                (output_scenario_df["value"].round(1)).astype(str) + " minutes",
-                np.where(
-                    output_scenario_df["index"].str.contains("util|perc"),
-                    ((output_scenario_df["value"] * 100).round(1)).astype(str) + "%",
-                    np.where(
-                        output_scenario_df["index"].str.contains("arrivals|throughput"),
-                        (output_scenario_df["value"].astype(int)).astype(str),
-                        output_scenario_df["value"],
-                    ),
-                ),
-            )
-            output_scenario_df = output_scenario_df.drop(columns=["value"])
-            # st.dataframe(output_scenario_df)
-            output_scenario_df = output_scenario_df.pivot(
-                index="index", columns="Model Run", values="formatted_value"
-            ).reset_index(drop=False)
-            output_scenario_df.columns = [
-                scenario_labels.get(i, f"Scenario {i}")
-                for i in output_scenario_df.columns
-            ]
-            # st.dataframe(output_scenario_df)
-            output_scenario_df = output_scenario_df[
-                output_scenario_df["Scenario index"].str.contains(r"\d", regex=True)
-            ]
-
-            output_scenario_df["Scenario index"] = output_scenario_df[
-                "Scenario index"
-            ].apply(lambda x: (x.replace("_", " ")).title())
 
             st.dataframe(
-                output_scenario_df.set_index(output_scenario_df.columns[0]).rename_axis(
-                    "Metric", axis=0
-                ),
-                hide_index=False,
+                scenario_breakdown_table(all_run_results, scenario_labels),
                 width="stretch",
-                height=700,
+                height="content",
                 column_config=INDEX_UNPINNED,
             )
-            del output_scenario_df
 
             del all_run_results
             gc.collect()

@@ -445,6 +445,99 @@ def per_run_table(results, metric):
     )
 
 
+def scenario_breakdown_table(all_run_results, scenario_labels):
+    """
+    Median of every result for each scenario, for the comparison tab.
+
+    One column per scenario and one row per measure, named in plain English
+    and grouped as utilisation, waits, time in the department and patients.
+    Utilisation and wait cells are shaded with the band colours the charts
+    use, as in ``per_run_table``; the other rows have no target, so stay
+    uncoloured.
+
+    Params:
+    ------
+    all_run_results: pandas.DataFrame
+        Every scenario's results, one row per run, with a "Model Run" column
+        saying which scenario each row belongs to.
+    scenario_labels: dict
+        Column name for each model run, e.g. {2: "Scenario 2 (Balanced)"}.
+
+    Returns:
+    -------
+    pandas.io.formats.style.Styler
+    """
+    results = all_run_results.assign(
+        perc_seen=all_run_results["09_throughput"] / all_run_results["00_arrivals"]
+    )
+    medians = results.groupby("Model Run").median()
+
+    util_rows = {
+        col: f"Utilisation: {label.replace('<br>', ' ')}"
+        for col, label in UTIL_LABELS.items()
+    }
+    wait_rows = {
+        col: f"Average wait (min): {label.replace('<br>', ' ')}"
+        for col, label in WAIT_LABELS.items()
+    }
+    time_rows = {
+        "05_total_time(non-trauma)": "Average time in department (min): non-trauma patients",
+        "08_total_time(trauma)": "Average time in department (min): trauma patients",
+    }
+    count_rows = {
+        "00_arrivals": "Patients arriving",
+        "09_throughput": "Patients seen",
+    }
+    perc_rows = {"perc_seen": "Patients seen (% of arrivals)"}
+
+    labels = {**util_rows, **wait_rows, **time_rows, **count_rows, **perc_rows}
+    table = medians[list(labels)].T.rename(index=labels).rename_axis("Measure")
+    table.columns = [scenario_labels.get(run, f"Scenario {run}") for run in table.columns]
+
+    def rows(group):
+        return (list(group.values()), table.columns)
+
+    return (
+        table.style.format("{:.0%}", subset=rows(util_rows))
+        .format("{:,.1f}", subset=rows({**wait_rows, **time_rows}))
+        .format("{:,.0f}", subset=rows(count_rows))
+        .format("{:.0%}", subset=rows(perc_rows))
+        .map(lambda value: _band_fill(util_band_colour(value)), subset=rows(util_rows))
+        .map(lambda value: _band_fill(wait_band_colour(value)), subset=rows(wait_rows))
+    )
+
+
+def scenario_settings_table(all_run_results, scenario_labels, setting_columns):
+    """
+    The settings each scenario was run with, for the comparison tab.
+
+    Params:
+    ------
+    all_run_results: pandas.DataFrame
+        As for ``scenario_breakdown_table``.
+    scenario_labels: dict
+        As for ``scenario_breakdown_table``.
+    setting_columns: list of str
+        The settings columns of ``all_run_results``, in display order. Names may
+        contain line breaks, which are shown as spaces. Those starting
+        "Probability" are shown as percentages, the rest as whole numbers.
+
+    Returns:
+    -------
+    pandas.io.formats.style.Styler
+    """
+    table = all_run_results.groupby("Model Run").first()[setting_columns].T
+    table.index = [col.replace("\n", " ") for col in table.index]
+    table = table.rename_axis("Setting")
+    table.columns = [scenario_labels.get(run, f"Scenario {run}") for run in table.columns]
+
+    probabilities = [row for row in table.index if row.startswith("Probability")]
+    counts = [row for row in table.index if row not in probabilities]
+    return table.style.format("{:.0%}", subset=(probabilities, table.columns)).format(
+        "{:,.0f}", subset=(counts, table.columns)
+    )
+
+
 def add_util_bands(fig, orientation):
     """
     Shade a plotly figure by how good a utilisation level is.
