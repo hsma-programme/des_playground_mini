@@ -131,12 +131,23 @@ section[data-testid="stSidebar"] hr {
 	position: relative;
 	justify-content: center;
 }
-/* The sidebar can't be minimised (it breaks the logo), so hide the collapse
-	button and the re-expand control. */
+/* The sidebar can't be minimised on desktop, so hide the collapse button
+	(it is shown again on mobile, further down). */
 [data-testid="stSidebarHeader"] [data-testid="stSidebarCollapseButton"],
-[data-testid="stExpandSidebarButton"],
 [data-testid="stSidebarCollapsedControl"] {
 	display: none;
+}
+/* The re-expand button is left visible: Streamlit only renders it while the
+	sidebar is shut, which happens on mobile, and the sidebar can stay shut if the
+	screen then widens (e.g. a tablet rotated). While it's shut, Streamlit repeats
+	the logo in the header, over the navbar title, so hide that copy and start
+	the title after the button. */
+[data-testid="stHeaderLogo"] {
+	display: none;
+}
+[data-testid="stApp"]:has([data-testid="stExpandSidebarButton"])
+	[role="tablist"]:not([data-testid="stTabPanel"] *) {
+	padding-left: 3.25rem;
 }
 /* Page title in the HSMA font. */
 h1 {
@@ -144,7 +155,7 @@ h1 {
 	font-weight: 400;
 }
 [data-testid="stSidebarLogo"],
-img.stLogo {
+[data-testid="stSidebar"] img.stLogo {
 	height: 11rem !important;
 	max-height: 11rem !important;
 	margin: 0 auto;
@@ -248,6 +259,21 @@ h1,
 [class*="st-key-preset_"] button:active {
 	box-shadow: 0 0 0 rgba(31, 177, 185, 0);
 	transform: translateY(2px);
+}
+/* Wrap long labels onto a second line instead of cutting them off with "...",
+	and keep the buttons in a row the same height when one of them wraps. */
+[class*="st-key-preset_"] button [data-testid="stMarkdownContainer"],
+[class*="st-key-preset_"] button [data-testid="stMarkdownContainer"] * {
+	white-space: normal;
+	text-overflow: clip;
+	overflow: visible;
+}
+.st-key-reflow_halves_presets [data-testid="stHorizontalBlock"] {
+	align-items: stretch;
+}
+.st-key-reflow_halves_presets [data-testid="stColumn"] *:has(button),
+.st-key-reflow_halves_presets button {
+	height: 100%;
 }
 
 /* ---- st.info in a muted red to match the sidebar, instead of Streamlit's blue ---- */
@@ -364,4 +390,119 @@ section[data-testid="stSidebar"][aria-expanded="true"] {
 .room-count {
     margin-top: 0.15rem;
     font-weight: 700;
+}
+
+/* ---- Reflow the results rows on narrower screens ---- */
+/* Streamlit only stacks columns below 640px, so at in-between widths (a laptop
+	window at half width, a tablet) these rows got too cramped to read. Below
+	1300px, wrap them onto more lines; below 640px Streamlit's own stacking (one
+	per line) takes over again. Rows opt in through the key of the container
+	they sit in (set in app_model.py):
+	- reflow_stack_*: one item per line (the utilisation / wait plot pairs)
+	- reflow_halves_*: two per line (summary metrics, preset buttons)
+	- reflow_thirds_*: three per line, or two on a phone (room-count cards) */
+@media (max-width: 1299.98px) {
+	[class*="st-key-reflow_"] [data-testid="stHorizontalBlock"] {
+		flex-wrap: wrap;
+	}
+	/* Same rule Streamlit uses to stack columns. */
+	[class*="st-key-reflow_stack_"] [data-testid="stColumn"] {
+		min-width: calc(100% - 2rem);
+	}
+}
+@media (min-width: 640px) and (max-width: 1299.98px) {
+	[class*="st-key-reflow_halves_"] [data-testid="stColumn"] {
+		min-width: calc(50% - 1rem);
+	}
+	[class*="st-key-reflow_thirds_"] [data-testid="stColumn"] {
+		min-width: calc(33.333% - 1rem);
+	}
+}
+@media (max-width: 639.98px) {
+	/* Small cards, so two per line on a phone rather than Streamlit's one. */
+	[class*="st-key-reflow_thirds_"] [data-testid="stColumn"] {
+		min-width: calc(50% - 1rem);
+	}
+	/* Room cards are narrow at that size: tighter padding and smaller labels,
+		whole words only, and let a card grow past its fixed 100px height when
+		a label needs another line (rather than scroll inside the card). The
+		fixed height is set on both the card and its wrapper (as flex-basis).
+		overflow: visible stops the card scrolling by the few pixels of
+		Streamlit's markdown bottom margin when a label takes three lines. */
+	[data-testid="stLayoutWrapper"]:has(> [class*="st-key-room_card_"]) {
+		flex: 0 0 auto;
+	}
+	[class*="st-key-room_card_"] {
+		flex: 0 0 auto;
+		height: auto !important;
+		min-height: 100px;
+		padding: 0.5rem;
+		overflow: visible;
+	}
+	.room-label {
+		font-size: 0.8rem;
+		overflow-wrap: normal;
+		word-break: normal;
+	}
+}
+
+/* ---- Page dropdown in place of the navbar's tab pills ---- */
+/* Below 1320px the title and both pills no longer fit on one line (the title
+	wraps and the bar nearly doubles in height), so swap the pills for a
+	dropdown. The dropdown is added by add_mobile_nav in helper_functions.py;
+	the container holding its script never takes up space. */
+select.mobile-nav,
+.st-key-mobile_nav {
+	display: none;
+}
+@media (max-width: 1319.98px) {
+	[data-testid="stTab"]:not([data-testid="stTabPanel"] *) {
+		display: none;
+	}
+	select.mobile-nav {
+		display: block;
+		/* Sits where the pills were (the right edge is under Streamlit's
+			toolbar), and never shrinks: the title wraps instead. */
+		flex: none;
+		padding: 0.4rem 2rem 0.4rem 1rem;
+		border: 1px solid transparent;
+		border-radius: 999px;
+		background-color: #1fb1b9;
+		/* White chevron for the dropdown arrow */
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='white' stroke-width='2'/%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 0.8rem center;
+		color: #ffffff;
+		font-family: "HSMA Display", sans-serif;
+		font-size: 1.1rem;
+		letter-spacing: 0.05em;
+		text-overflow: ellipsis;
+		appearance: none;
+		-webkit-appearance: none;
+		cursor: pointer;
+	}
+	select.mobile-nav option {
+		background-color: #1b1a1a;
+		color: #fafafa;
+	}
+}
+
+/* ---- Mobile (Streamlit's own breakpoint: under 768px the sidebar is an overlay) ---- */
+@media (max-width: 767.98px) {
+	/* The sidebar is an overlay here, so let it be closed too. */
+	[data-testid="stSidebarHeader"] [data-testid="stSidebarCollapseButton"] {
+		display: flex;
+	}
+	/* A smaller navbar title and dropdown. */
+	[role="tablist"]:not([data-testid="stTabPanel"] *)::before {
+		font-size: 1.4rem;
+		margin-right: 0.75rem;
+	}
+	select.mobile-nav {
+		font-size: 0.95rem;
+	}
+	/* Smaller run button text. */
+	.st-key-animate_button button p {
+		font-size: 1rem !important;
+	}
 }

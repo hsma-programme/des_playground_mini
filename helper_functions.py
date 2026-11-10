@@ -1,5 +1,7 @@
 import json
+from numbers import Number
 import urllib.request as request
+import numpy as np
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -57,6 +59,106 @@ def add_logo():
         size="large",
         link="https://hsma.co.uk",
     )
+
+
+# Adds a <select> to the top-level tab bar, mirroring its tabs. style.css only
+# shows it below 1320px wide, where it replaces the tab pills. Choosing an option
+# clicks the matching tab; a MutationObserver keeps the selected option in step
+# when the tab changes, and adds the select back if Streamlit redraws the bar.
+MOBILE_NAV_SCRIPT = """
+<script>
+(function () {
+    if (window.__mobileNavInstalled) return;
+    window.__mobileNavInstalled = true;
+
+    // Shorter names for tabs whose full label doesn't fit beside the title
+    var shortLabels = __SHORT_LABELS__;
+
+    function topTabList() {
+        return Array.from(document.querySelectorAll('[role="tablist"]')).find(
+            function (list) { return !list.closest('[data-testid="stTabPanel"]'); }
+        );
+    }
+
+    function tabsOf(list) {
+        return Array.from(list.querySelectorAll('[data-testid="stTab"]'));
+    }
+
+    function sync() {
+        var list = topTabList();
+        if (!list) return;
+        var tabs = tabsOf(list);
+        if (!tabs.length) return;
+
+        var select = list.querySelector('select.mobile-nav');
+        if (!select) {
+            select = document.createElement('select');
+            select.className = 'mobile-nav';
+            select.setAttribute('aria-label', 'Page');
+            select.addEventListener('change', function () {
+                var tab = tabsOf(topTabList())[select.selectedIndex];
+                if (tab) tab.click();
+            });
+            list.appendChild(select);
+        }
+
+        var labels = tabs.map(function (tab) {
+            var label = tab.textContent.trim();
+            return shortLabels[label] || label;
+        });
+        var current = Array.from(select.options).map(function (o) { return o.text; });
+        if (labels.join('\\n') !== current.join('\\n')) {
+            select.replaceChildren.apply(select, labels.map(function (label) {
+                var option = document.createElement('option');
+                option.text = label;
+                return option;
+            }));
+        }
+
+        var selected = tabs.findIndex(function (tab) {
+            return tab.getAttribute('data-selected') === 'true';
+        });
+        if (selected >= 0 && select.selectedIndex !== selected) {
+            select.selectedIndex = selected;
+        }
+    }
+
+    var queued = false;
+    new MutationObserver(function () {
+        if (queued) return;
+        queued = true;
+        requestAnimationFrame(function () { queued = false; sync(); });
+    }).observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['data-selected'],
+    });
+    sync();
+})();
+</script>
+"""
+
+
+def add_mobile_nav(short_labels=None):
+    """
+    Add a dropdown that replaces the navbar's tab pills below 1320px wide.
+
+    Runs ``MOBILE_NAV_SCRIPT`` on the page. The script's own container is hidden
+    (``.st-key-mobile_nav`` in style.css) so it takes up no space; the script
+    still runs.
+
+    Params:
+    ------
+    short_labels: dict or None
+        Maps a tab's full label to the shorter name shown in the dropdown, for
+        labels too long to fit beside the title on a phone.
+    """
+    script = MOBILE_NAV_SCRIPT.replace(
+        "__SHORT_LABELS__", json.dumps(short_labels or {})
+    )
+    with st.container(key="mobile_nav"):
+        st.html(script, unsafe_allow_javascript=True)
 
 
 def render_looping_plotly_animation(
@@ -208,7 +310,10 @@ def render_looping_plotly_animation(
 
     # The figure has a fixed pixel width. If the page is narrower than that
     # (narrow window, wide sidebar), shrink the whole figure to fit instead of
-    # showing scrollbars, and resize the iframe to match.
+    # showing scrollbars, and resize the iframe to match. Streamlit also gives
+    # the element container around the iframe a fixed height, as both `height`
+    # and `flex-basis` (the one that counts in its flex column), so resize that
+    # too, or the space below the shrunken figure stays empty.
     fig_width = fig.layout.width
     if fig_width is not None:
         fit_script = """
@@ -219,8 +324,15 @@ def render_looping_plotly_animation(
         document.documentElement.style.overflow = 'hidden';
         var s = Math.min(1, window.innerWidth / figW);
         document.body.style.zoom = s;
-        if (window.frameElement) {
-            window.frameElement.style.height = Math.ceil(figH * s) + 10 + 'px';
+        var frame = window.frameElement;
+        if (frame) {
+            var h = Math.ceil(figH * s) + 10 + 'px';
+            frame.style.height = h;
+            var box = frame.closest('[data-testid="stElementContainer"]');
+            if (box) {
+                box.style.height = h;
+                box.style.flexBasis = h;
+            }
         }
     }
     window.addEventListener('resize', fit);
@@ -231,16 +343,46 @@ def render_looping_plotly_animation(
         html = html.replace("</body>", fit_script + "</body>", 1)
 
     components.html(html, height=height, scrolling=True)
+    # st.components.v1.html is deprecated in favour of st.iframe. Swap to this
+    # once it has been checked in a browser (full height, no scrollbar, and
+    # still shrinks to fit a narrow window):
+    # st.iframe(html, height=height)
 
 
-# Targets used by the playground (and described in its explanatory text)
-UTIL_IDEAL_RANGE = (0.65, 0.85)
+# Targets used by the playground (and described in its explanatory text).
+# Utilisation is the share of the whole day (24 hours) a resource is in use.
+# Few patients arrive overnight, so even a well-used room sits idle for much
+# of the night, which is why the ideal range starts as low as half the day.
+UTIL_IDEAL_RANGE = (0.5, 0.85)
+# Below this, a resource is barely used (red rather than amber)
+UTIL_LOW_LIMIT = 0.3
 WAIT_LIMIT_MINS = 120
 
 # Colours of the shaded "how are we doing?" bands drawn behind the charts
 BAND_GOOD = "#5DFDA0"
 BAND_WARN = "#FDD049"
 BAND_BAD = "#D45E5E"
+
+
+def util_band_colour(value):
+    """Band colour (BAND_GOOD/WARN/BAD) for a utilisation between 0 and 1."""
+    low, high = UTIL_IDEAL_RANGE
+    if low <= value <= high:
+        return BAND_GOOD
+    if UTIL_LOW_LIMIT <= value < low:
+        return BAND_WARN
+    return BAND_BAD
+
+
+def wait_band_colour(value):
+    """Band colour (BAND_GOOD/BAD) for an average wait in minutes."""
+    return BAND_GOOD if value < WAIT_LIMIT_MINS else BAND_BAD
+
+
+def _band_fill(colour, alpha=0.3):
+    """``background-color`` CSS for a translucent band colour, for table cells."""
+    r, g, b = (int(colour[i : i + 2], 16) for i in (1, 3, 5))
+    return f"background-color: rgba({r}, {g}, {b}, {alpha})"
 
 # Friendly axis labels for the columns of the model's results
 UTIL_LABELS = {
@@ -260,6 +402,291 @@ WAIT_LABELS = {
     "06a_trauma_wait": "Stabilisation",
     "07a_treatment_wait(trauma)": "Treatment<br>(trauma)",
 }
+
+
+# One-line names of the results, for chart tooltips
+HOVER_NAMES = {
+    **{col: label.replace("<br>", " ") for col, label in UTIL_LABELS.items()},
+    **{col: label.replace("<br>", " ") for col, label in WAIT_LABELS.items()},
+    "perc_throughput": "Throughput",
+}
+
+
+def _hover_number(metric, ref):
+    """
+    Tooltip text for a bare value, e.g. "%{x:.0%}" or "%{x:,.1f} min".
+
+    ``metric`` is "util", "wait" or "throughput"; ``ref`` is the plotly
+    template variable holding the value, e.g. "x" or "customdata[2]".
+    """
+    if metric == "wait":
+        return f"%{{{ref}:,.1f}} min"
+    return f"%{{{ref}:.0%}}"
+
+
+def _hover_range(metric, low_ref, high_ref):
+    """Tooltip text for a range, e.g. "%{a:.0%} to %{b:.0%}" or "%{a:,.1f} to %{b:,.1f} min"."""
+    if metric == "wait":
+        return f"%{{{low_ref}:,.1f}} to %{{{high_ref}:,.1f}} min"
+    return f"{_hover_number(metric, low_ref)} to {_hover_number(metric, high_ref)}"
+
+
+def _hover_value(metric, ref):
+    """Tooltip text for one value in words, e.g. "in use %{x:.0%} of the time"."""
+    number = _hover_number(metric, ref)
+    if metric == "util":
+        return f"in use {number} of the time"
+    if metric == "wait":
+        return f"average wait {number}"
+    return f"{number} of arrivals seen"
+
+
+def set_bar_hover(fig, metric, value_axis, note, by_scenario=False):
+    """
+    Plain-English tooltips for a bar chart of one value per result.
+
+    Each bar's ``customdata[0]`` must be its one-line name (``HOVER_NAMES``).
+
+    Params:
+    ------
+    fig: plotly.graph_objects.Figure
+    metric: str
+        "util" or "wait".
+    value_axis: str
+        "x" or "y": the axis the values are on.
+    note: str
+        What the value is, e.g. "Average across runs".
+    by_scenario: bool
+        True if each trace is a scenario, to put its name at the top.
+    """
+    fig.update_traces(
+        hovertemplate=("<b>%{fullData.name}</b><br>" if by_scenario else "")
+        + "%{customdata[0]}: "
+        + _hover_value(metric, value_axis)
+        + f"<br><i>{note}</i><extra></extra>",
+        selector=dict(type="bar"),
+    )
+
+
+def runs_long(results, like, scenario_labels=None):
+    """
+    The results with one row per run and result, for the box plots.
+
+    Params:
+    ------
+    results: pandas.DataFrame
+        One row per run (indexed by ``rep``); with ``scenario_labels``, every
+        scenario's runs with a "Model Run" column.
+    like: str
+        Keep the results whose column names contain this, e.g. "util".
+    scenario_labels: dict or None
+        Name of each model run, as for ``scenario_breakdown_table``.
+
+    Returns:
+    -------
+    pandas.DataFrame
+        Columns rep, variable (the result's column name), value and name (its
+        ``HOVER_NAMES`` label), then min, q1, median, q3 and max of that
+        result across the runs of the same scenario (the statistics its box
+        is drawn from), plus "Model Run" and Scenario with ``scenario_labels``.
+    """
+    group = ["Model Run"] if scenario_labels else []
+    long = results.reset_index().melt(
+        id_vars=["rep", *group],
+        value_vars=[col for col in results.columns if like in col],
+    )
+    long["name"] = long["variable"].map(HOVER_NAMES)
+
+    values = long.groupby([*group, "variable"])["value"]
+    long["min"] = values.transform("min")
+    long["max"] = values.transform("max")
+    # Plotly's default ("linear") quartiles sit at position p * n - 0.5 in the
+    # sorted values, which is numpy's "hazen" method; pandas' default differs,
+    # and the tooltip would then disagree with the box drawn
+    for stat, p in [("q1", 0.25), ("median", 0.5), ("q3", 0.75)]:
+        long[stat] = values.transform(
+            lambda v, p=p: np.quantile(v, p, method="hazen")
+        )
+
+    if scenario_labels:
+        long["Scenario"] = long["Model Run"].map(scenario_labels)
+    return long
+
+
+# Columns of ``runs_long`` to pass to px.box as custom_data for ``set_box_hover``
+BOX_HOVER_DATA = ["name", "rep", "median", "q1", "q3", "min", "max"]
+
+
+def set_box_hover(fig, metric, by_scenario=False):
+    """
+    Short tooltips for a box plot of each run's results (values on the x axis).
+
+    The default tooltips pop up a separate label for each of the box's
+    statistics at once. Instead only the dots (one per run) have a tooltip,
+    giving that run's value and, below it, the median, quartiles and range
+    the box is drawn from. Pass ``custom_data=BOX_HOVER_DATA`` to px.box.
+
+    Params:
+    ------
+    fig: plotly.graph_objects.Figure
+    metric: str
+        "util", "wait" or "throughput".
+    by_scenario: bool
+        True if each trace is a scenario, to put its name at the top.
+    """
+    fig.update_traces(
+        hoveron="points",
+        hovertemplate=("<b>%{fullData.name}</b><br>" if by_scenario else "")
+        + "%{customdata[0]}, run %{customdata[1]}: "
+        + _hover_value(metric, "x")
+        + "<br><br><i>Across all runs</i>"
+        + "<br>Median: "
+        + _hover_number(metric, "customdata[2]")
+        + "<br>Quartiles: "
+        + _hover_range(metric, "customdata[3]", "customdata[4]")
+        + "<br>Range: "
+        + _hover_range(metric, "customdata[5]", "customdata[6]")
+        + "<extra></extra>",
+        selector=dict(type="box"),
+    )
+
+
+def per_run_table(results, metric):
+    """
+    Per-run table of the utilisation or wait results, for ``st.table``.
+
+    One row per resource or stage, plus patients seen, and one column per run.
+    Row names are the plot labels on one line, and values are formatted as
+    percentages, minutes (the unit is in the corner header, to keep the
+    columns narrow on a phone) or patient counts. Each utilisation or wait
+    cell is shaded with the band colour the charts above use for that value.
+
+    Params:
+    ------
+    results: pandas.DataFrame
+        The model's summary results, one row per run (indexed by ``rep``).
+    metric: str
+        "util" or "wait".
+
+    Returns:
+    -------
+    pandas.io.formats.style.Styler
+    """
+    labels = UTIL_LABELS if metric == "util" else WAIT_LABELS
+    labels = {col: label.replace("<br>", " ") for col, label in labels.items()}
+    table = results[list(labels) + ["09_throughput"]].T
+    table.columns = [f"Run {rep}" for rep in table.columns]
+    table = table.rename(index={**labels, "09_throughput": "Patients seen"})
+    table = table.rename_axis(
+        "Utilisation" if metric == "util" else "Average wait (minutes)", axis=0
+    )
+
+    stages = list(labels.values())
+    band_colour = util_band_colour if metric == "util" else wait_band_colour
+    return (
+        table.style.format(
+            "{:.0%}" if metric == "util" else "{:,.1f}",
+            subset=(stages, table.columns),
+        )
+        .format("{:,.0f}", subset=(["Patients seen"], table.columns))
+        .map(
+            lambda value: _band_fill(band_colour(value)),
+            subset=(stages, table.columns),
+        )
+    )
+
+
+def scenario_breakdown_table(all_run_results, scenario_labels):
+    """
+    Median of every result for each scenario, for the comparison tab.
+
+    One column per scenario and one row per measure, named in plain English
+    and grouped as utilisation, waits, time in the department and patients.
+    Utilisation and wait cells are shaded with the band colours the charts
+    use, as in ``per_run_table``; the other rows have no target, so stay
+    uncoloured.
+
+    Params:
+    ------
+    all_run_results: pandas.DataFrame
+        Every scenario's results, one row per run, with a "Model Run" column
+        saying which scenario each row belongs to.
+    scenario_labels: dict
+        Column name for each model run, e.g. {2: "Scenario 2 (Balanced)"}.
+
+    Returns:
+    -------
+    pandas.io.formats.style.Styler
+    """
+    results = all_run_results.assign(
+        perc_seen=all_run_results["09_throughput"] / all_run_results["00_arrivals"]
+    )
+    medians = results.groupby("Model Run").median()
+
+    util_rows = {
+        col: f"Utilisation: {label.replace('<br>', ' ')}"
+        for col, label in UTIL_LABELS.items()
+    }
+    wait_rows = {
+        col: f"Average wait (min): {label.replace('<br>', ' ')}"
+        for col, label in WAIT_LABELS.items()
+    }
+    time_rows = {
+        "05_total_time(non-trauma)": "Average time in department (min): non-trauma patients",
+        "08_total_time(trauma)": "Average time in department (min): trauma patients",
+    }
+    count_rows = {
+        "00_arrivals": "Patients arriving",
+        "09_throughput": "Patients seen",
+    }
+    perc_rows = {"perc_seen": "Patients seen (% of arrivals)"}
+
+    labels = {**util_rows, **wait_rows, **time_rows, **count_rows, **perc_rows}
+    table = medians[list(labels)].T.rename(index=labels).rename_axis("Measure")
+    table.columns = [scenario_labels.get(run, f"Scenario {run}") for run in table.columns]
+
+    def rows(group):
+        return (list(group.values()), table.columns)
+
+    return (
+        table.style.format("{:.0%}", subset=rows(util_rows))
+        .format("{:,.1f}", subset=rows({**wait_rows, **time_rows}))
+        .format("{:,.0f}", subset=rows(count_rows))
+        .format("{:.0%}", subset=rows(perc_rows))
+        .map(lambda value: _band_fill(util_band_colour(value)), subset=rows(util_rows))
+        .map(lambda value: _band_fill(wait_band_colour(value)), subset=rows(wait_rows))
+    )
+
+
+def scenario_settings_table(all_run_results, scenario_labels, setting_columns):
+    """
+    The settings each scenario was run with, for the comparison tab.
+
+    Params:
+    ------
+    all_run_results: pandas.DataFrame
+        As for ``scenario_breakdown_table``.
+    scenario_labels: dict
+        As for ``scenario_breakdown_table``.
+    setting_columns: list of str
+        The settings columns of ``all_run_results``, in display order. Names may
+        contain line breaks, which are shown as spaces. Those starting
+        "Probability" are shown as percentages, the rest as whole numbers.
+
+    Returns:
+    -------
+    pandas.io.formats.style.Styler
+    """
+    table = all_run_results.groupby("Model Run").first()[setting_columns].T
+    table.index = [col.replace("\n", " ") for col in table.index]
+    table = table.rename_axis("Setting")
+    table.columns = [scenario_labels.get(run, f"Scenario {run}") for run in table.columns]
+
+    probabilities = [row for row in table.index if row.startswith("Probability")]
+    counts = [row for row in table.index if row not in probabilities]
+    return table.style.format("{:.0%}", subset=(probabilities, table.columns)).format(
+        "{:,.0f}", subset=(counts, table.columns)
+    )
 
 
 def add_util_bands(fig, orientation):
@@ -283,8 +710,8 @@ def add_util_bands(fig, orientation):
     for band_start, band_end, colour in [
         (low, high, BAND_GOOD),
         (high, 1, BAND_BAD),
-        (0.4, low, BAND_WARN),
-        (0, 0.4, BAND_BAD),
+        (UTIL_LOW_LIMIT, low, BAND_WARN),
+        (0, UTIL_LOW_LIMIT, BAND_BAD),
     ]:
         add_band(
             **{start: band_start, end: band_end},
@@ -296,24 +723,45 @@ def add_util_bands(fig, orientation):
 
 def add_wait_band(fig, orientation):
     """
-    Shade the waits that meet the target (under ``WAIT_LIMIT_MINS``) in green.
+    Shade the waits that meet the target (under ``WAIT_LIMIT_MINS``) in green
+    and those that miss it in red.
+
+    Call this after the traces are added: the red band runs to a little past
+    the largest wait plotted. Plotly's autorange includes shapes, so the band
+    fills to the end of the axis without stretching it.
 
     Params:
     ------
     fig: plotly.graph_objects.Figure
     orientation: str
-        "h" for a horizontal band (waits on the y axis), "v" for a vertical
-        band (waits on the x axis).
+        "h" for horizontal bands (waits on the y axis), "v" for vertical
+        bands (waits on the x axis).
     """
     add_band = fig.add_hrect if orientation == "h" else fig.add_vrect
     start, end = ("y0", "y1") if orientation == "h" else ("x0", "x1")
 
-    add_band(
-        **{start: 0, end: WAIT_LIMIT_MINS},
-        fillcolor=BAND_GOOD,
-        opacity=0.3,
-        line_width=0,
-    )
+    axis = "y" if orientation == "h" else "x"
+    plotted = [WAIT_LIMIT_MINS]
+    for trace in fig.data:
+        values = getattr(trace, axis, None)
+        if values is not None:
+            plotted += [
+                float(value)
+                for value in values
+                if isinstance(value, Number) and value == value  # skip NaN
+            ]
+    top = 1.1 * max(plotted)
+
+    for band_start, band_end, colour in [
+        (0, WAIT_LIMIT_MINS, BAND_GOOD),
+        (WAIT_LIMIT_MINS, top, BAND_BAD),
+    ]:
+        add_band(
+            **{start: band_start, end: band_end},
+            fillcolor=colour,
+            opacity=0.3,
+            line_width=0,
+        )
 
 
 def summarise_results(results):
