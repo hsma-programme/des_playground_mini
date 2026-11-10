@@ -19,6 +19,7 @@ import numpy as np
 from helper_functions import (
     BOX_HOVER_DATA,
     HOVER_NAMES,
+    UTIL_IDEAL_RANGE,
     UTIL_LABELS,
     WAIT_LABELS,
     WAIT_LIMIT_MINS,
@@ -38,7 +39,7 @@ from helper_functions import (
     set_box_hover,
     summarise_results,
 )
-from model_classes import Scenario, multiple_replications
+from model_classes import START_HOUR, Scenario, multiple_replications
 from vidigi.animation import (
     animate_activity_log,
     add_subplot_panels,
@@ -256,6 +257,20 @@ def scenario_label(run_number, params_row):
     return f"Scenario {run_number} ({matching_preset(run_params) or 'Custom'})"
 
 
+# Explanation of the utilisation target, above the utilisation charts
+UTIL_EXPLANATION = f"""
+The emergency department wants each type of resource to be in use for
+{UTIL_IDEAL_RANGE[0]:.0%} to {UTIL_IDEAL_RANGE[1]:.0%} of the day, on average.
+This counts the whole 24 hours. Few patients arrive overnight, so even a
+well-used room sits empty for much of the night.
+
+The green box shows this ideal range. If the bars overlap with the green box, utilisation is ideal.
+
+If utilisation is below this, you might want to **reduce** the number of those resources available.
+
+If utilisation is above this point, you may want to **increase** the number of that type of resource available.
+"""
+
 # Results tables: let the long index labels scroll away with the other columns,
 # so on a phone the scenario columns aren't hidden behind a pinned index.
 INDEX_UNPINNED = {"_index": st.column_config.Column(pinned=False)}
@@ -392,7 +407,10 @@ def show_summary_metrics(summary, previous_summary, key):
         f"{summary['util_in_range']} of {summary['n_util']}",
         summary["util_in_range"],
         previous_value("util_in_range"),
-        help="How many resources were busy 65% to 85% of the time, on average.",
+        help=(
+            f"How many types of resource were in use {UTIL_IDEAL_RANGE[0]:.0%} to "
+            f"{UTIL_IDEAL_RANGE[1]:.0%} of the day, on average."
+        ),
     )
     metric_with_delta(
         col_wait,
@@ -881,6 +899,8 @@ with tab1:
                 display_stage_labels=False,
                 setup_mode=False,
                 time_display_units="dhm",
+                # Model time 0 is START_HOUR (6am), not midnight
+                start_time=f"{START_HOUR:02d}:00:00",
                 add_background_image="https://raw.githubusercontent.com/hsma-programme/des_playground_mini/main/resources/Full%20Model%20Background%20Image%20-%20Hospital%20Layout.png",
             )
 
@@ -952,18 +972,19 @@ with tab1:
 
             my_bar.progress(95, text="Tidying up the charts...")
 
-            # Ticks every 6 hours: day numbers at midnight, times of day between
-            tick_labels = ["6am", "12pm", "6pm"]
-            ticks = [
-                (
-                    d + h / 24,
-                    ("" if d == anim_days else str(d + 1))
-                    if h == 0
-                    else tick_labels[h // 6 - 1],
+            # Ticks every 6 hours: the day number at each midnight, times of day
+            # between. The x axis is days since the run started, at START_HOUR.
+            ticks = []
+            for k in range(4 * anim_days + 1):
+                clock_hours = START_HOUR + 6 * k
+                hour = clock_hours % 24
+                label = (
+                    f"Day {clock_hours // 24 + 1}"
+                    if hour == 0
+                    else {6: "6am", 12: "12pm", 18: "6pm"}[hour]
                 )
-                for d in range(anim_days + 1)
-                for h in (0, 6, 12, 18)
-            ][:-3]
+                # The last tick sits on the right edge, where it would be cut off
+                ticks.append((k / 4, "" if k == 4 * anim_days else label))
             animated_plot.update_xaxes(
                 range=[0, anim_days],
                 tickmode="array",
@@ -1045,17 +1066,7 @@ with tab1:
 
             with col_res_a:
                 # util_fig_simple = px.bar(results.mean().filter(like="util"), opacity=0.5)
-                st.markdown(
-                    """
-                    The emergency department wants to aim for an average of 65% to 85% utilisation across all resources in the emergency department.
-
-                    The green box shows this ideal range. If the bars overlap with the green box, utilisation is ideal.
-
-                    If utilisation is below this, you might want to **reduce** the number of those resources available.
-
-                    If utilisation is above this point, you may want to **increase** the number of that type of resource available.
-                    """
-                )
+                st.markdown(UTIL_EXPLANATION)
                 util_fig_simple = go.Figure()
                 add_util_bands(util_fig_simple, "h")
 
@@ -1161,17 +1172,7 @@ with tab1:
             with col_res_1:
                 st.subheader("Average Utilisation")
 
-                st.markdown(
-                    """
-                    The emergency department wants to aim for an average of 65% to 85% utilisation across all resources in the emergency department.
-
-                    The green box shows this ideal range. If the bars overlap with the green box, utilisation is ideal.
-
-                    If utilisation is below this, you might want to **reduce** the number of those resources available.
-
-                    If utilisation is above this point, you may want to **increase** the number of that type of resource available.
-                    """
-                )
+                st.markdown(UTIL_EXPLANATION)
 
                 utilisation_boxplot = px.box(
                     runs_long(results, "util"),

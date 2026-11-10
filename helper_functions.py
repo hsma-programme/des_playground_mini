@@ -349,10 +349,13 @@ def render_looping_plotly_animation(
     # st.iframe(html, height=height)
 
 
-# Targets used by the playground (and described in its explanatory text)
-UTIL_IDEAL_RANGE = (0.65, 0.85)
+# Targets used by the playground (and described in its explanatory text).
+# Utilisation is the share of the whole day (24 hours) a resource is in use.
+# Few patients arrive overnight, so even a well-used room sits idle for much
+# of the night, which is why the ideal range starts as low as half the day.
+UTIL_IDEAL_RANGE = (0.5, 0.85)
 # Below this, a resource is barely used (red rather than amber)
-UTIL_LOW_LIMIT = 0.4
+UTIL_LOW_LIMIT = 0.3
 WAIT_LIMIT_MINS = 120
 
 # Colours of the shaded "how are we doing?" bands drawn behind the charts

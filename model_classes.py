@@ -7,9 +7,10 @@ FirstTreatment: A health clinic based in the US.
 This example is based on exercise 13 from Nelson (2013) page 170.
 
 Nelson. B.L. (2013). Foundations and methods of stochastic simulation.
-Patients arrive to the health clinic between 6am and 12am following a
-non-stationary poisson process. After 12am arriving patients are diverted
-elsewhere and remaining WIP is completed.
+Patients arrive following a non-stationary poisson process with an hourly
+arrival profile. Nelson's clinic only took arrivals from 6am to 12am; this
+version is open 24 hours, with a low arrival rate overnight added to Nelson's
+profile, and runs over whole days. Model time 0 is 6am (``START_HOUR``).
 On arrival, all patients quickly sign-in and are triaged.
 
 The health clinic expects two types of patient arrivals:
@@ -62,12 +63,21 @@ import pandas as pd
 # path to Nelson arrival profile CSV file
 DEFAULT_NSPP_PROFILE_FILE = "ed_arrivals.csv"
 
+# Clock hour at model time 0. The arrival profile's first row is the hour
+# starting here, and each run starts at this time of day.
+START_HOUR = 6
+
+# Hours in the arrival profile: one row for each hour of the day
+PROFILE_HOURS = 24
+
 
 def load_nelson_arrivals() -> pd.DataFrame:
-    """Default time dependent arrival profile from Nelson 2013
+    """Default time dependent arrival profile, based on Nelson 2013
 
-    Arrival rates between between 6am and 12am broken down into
-    60 minute intervals.  Duration of day is 1080 minutes (18 hours * 60 mins).
+    Arrival rates (patients per hour) for each hour of the day, starting at
+    6am (``START_HOUR``). 6am to 10pm are Nelson's rates; 10pm to midnight are
+    raised slightly, and midnight to 6am (which Nelson's clinic was closed for)
+    added at a low rate.
 
     Returns a pd.DataFrame with 2 columns: period and arrival_rate
 
@@ -97,9 +107,11 @@ def valid_arrival_profile(arrival_profile: pd.DataFrame) -> bool:
             "Invalid arrival profile. DataFrame must contain period and arrival_rate columns"
         )
 
-    if arrival_profile.shape[0] != 18:
+    if arrival_profile.shape[0] != PROFILE_HOURS:
         raise ValueError(
-            f"Invalid arrival profile. Profile should contain 18 period.  But selected DataFrame contains {arrival_profile.shape[0]} rows."
+            f"Invalid arrival profile. Profile should contain {PROFILE_HOURS} periods "
+            f"(one per hour of the day). But selected DataFrame contains "
+            f"{arrival_profile.shape[0]} rows."
         )
 
     return True
@@ -158,8 +170,8 @@ DEFAULT_N_CUBICLES_2 = 1
 DEFAULT_RNG_SET = None
 N_STREAMS = 20
 
-# default results collection period
-DEFAULT_RESULTS_COLLECTION_PERIOD = 60 * 19
+# default results collection period (one day)
+DEFAULT_RESULTS_COLLECTION_PERIOD = 60 * 24
 
 # number of replications.
 DEFAULT_N_REPS = 5
@@ -332,7 +344,8 @@ class Scenario:
         arrival_profile: None | pd.DataFrame
             pandas dataframe containing the arrival profile for the day.
             This should have two columns 'period' and 'arrival_rate'.  There
-            should be 18 rows (each representing an hour)
+            should be 24 rows (one per hour of the day, starting at
+            START_HOUR)
 
         See also:
         ---------
@@ -1007,25 +1020,24 @@ class TreatmentCentreModel:
         NonTraumaPathway simpy process.
 
         Non stationary arrivals implemented via Thinning acceptance-rejection
-        algorithm.
+        algorithm: candidate arrivals are generated at the maximum rate, and
+        each is kept with probability (rate at the candidate's time) /
+        (maximum rate). The rate is looked up at each candidate's own time,
+        so a gap that runs into the next hour uses that hour's rate.
         """
+        rates = self.args.arrivals["arrival_rate"].to_numpy()
+
         for patient_count in itertools.count():
-            # this give us the index of dataframe to use
-            t = int(self.env.now // 60) % self.args.arrivals.shape[0]
-            lambda_t = self.args.arrivals["arrival_rate"].iloc[t]
-
-            # set to a large number so that at least 1 sample taken!
-            u = np.inf
-
-            interarrival_time = 0.0
-
-            # reject samples if u >= lambda_t / lambda_max
-            while u >= (lambda_t / self.args.lambda_max):
-                interarrival_time += self.args.arrival_dist.sample()
-                u = self.args.thinning_rng.sample()
+            candidate_time = self.env.now
+            while True:
+                candidate_time += self.args.arrival_dist.sample()
+                # the profile repeats every day
+                lambda_t = rates[int(candidate_time // 60) % len(rates)]
+                if self.args.thinning_rng.sample() < lambda_t / self.args.lambda_max:
+                    break
 
             # iat
-            yield self.env.timeout(interarrival_time)
+            yield self.env.timeout(candidate_time - self.env.now)
 
             trace(f"patient {patient_count} arrives at: {self.env.now:.3f}")
 
