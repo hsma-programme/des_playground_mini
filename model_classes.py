@@ -1024,6 +1024,11 @@ class TreatmentCentreModel:
         each is kept with probability (rate at the candidate's time) /
         (maximum rate). The rate is looked up at each candidate's own time,
         so a gap that runs into the next hour uses that hour's rate.
+
+        Equivalent to ``NSPPThinning.sample`` in sim-tools v1.0.4
+        (MIT licence, (c) 2019 Tom Monks, Amy Heather and Alison Harper,
+        https://github.com/TomMonks/sim-tools), which fixed the same issue of
+        the rate only being looked up at the start of each gap.
         """
         rates = self.args.arrivals["arrival_rate"].to_numpy()
 
