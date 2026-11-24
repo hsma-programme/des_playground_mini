@@ -115,14 +115,39 @@ Run the command from the repository root, as the app opens `style.css`, the font
 
 The app is deployed on [Streamlit Community Cloud](https://des-playground-mini.streamlit.app/) with `streamlit_app.py` as the entry point.
 
+### In-browser version (stlite)
+
+The same app also runs entirely in the visitor's browser, with no server, using [stlite](https://github.com/whitphx/stlite) (Streamlit on Pyodide). Each visitor gets their own copy running on their own computer, so nobody shares memory or processing power. It is built from this source, which is not changed, by `stlite/build.py`:
+
+```bash
+pip install -r requirements.txt            # the build copies vidigi from here
+python stlite/build.py --serve             # builds _site/, then serves http://localhost:8600/
+```
+
+`--serve` builds and starts a plain static server (`--port` changes the port; Ctrl+C stops it). Or do it in two steps: `python stlite/build.py`, then `python -m http.server 8600 -d _site`. The `--serve` server tells the browser not to cache, so a rebuild shows straight away; with `http.server`, hard-refresh (Ctrl+Shift+R) after rebuilding.
+
+Testing locally:
+
+- Open it over `http://localhost`, not by double-clicking `index.html`: a `file://` page can't load the app's files.
+- The first load takes from about 15 seconds to 2 minutes while the browser downloads Python and the packages, and needs internet. Later loads use the browser cache.
+- After changing an app file, stop the server, rebuild, and reload. If you see a traceback from another app (for example `No module named 'core'`, from the geographic playground), the browser is reusing that app's cached files from the same port: hard-refresh (Ctrl+Shift+R).
+- There is no server log. If the page stays blank or shows an error, open the browser's DevTools (F12) and read the Console for the Python traceback.
+
+`.github/workflows/stlite-pages.yml` builds and publishes it to GitHub Pages on every push to `main` (set Settings, Pages, Source to "GitHub Actions" once).
+
+#### Limitations of the in-browser build
+
+- **It needs internet.** stlite and Python (Pyodide) load from jsDelivr, and Google Fonts, the plotly.js script in the animation and the animation's background image (from this repo on GitHub) are fetched too. It is not an offline build.
+- **The first load is slow.** The browser downloads Python, Streamlit, pandas, pyarrow, plotly and simpy (tens of MB). In testing the page was ready after 15-30 seconds with a fast connection, but once took nearly 2 minutes.
+- **Runs are slower.** Python in the browser is single-threaded WebAssembly. In headless Chrome a default run (5 runs of 4 days) took 50-80 seconds from clicking run to the animation playing, mostly building the animation. The simulation itself took about 6 seconds.
+- **vidigi is imported with stand-ins.** vidigi's `__init__` imports its process-mapping module, which needs `ipycytoscape`, `ipywidgets` and `graphviz`. The app never uses process mapping and the browser's Python can't install them, so `stlite/stlite_shims.py` replaces them with empty modules, and the build copies vidigi into the site instead of installing it with its dependencies. If vidigi adds another import like that, the page fails with `ModuleNotFoundError`: add the module name to `STUBBED` in that file.
+- **pandas strings behave as in pandas 2.** The browser's pandas 3 stores strings in pyarrow, and on 32-bit WebAssembly a merge whose string key has missing values fails with "putmask: output array is read-only" (vidigi's animation preparation does this). The shims turn off pandas 3's string inference in the browser only, so strings are plain `object` columns there.
+- **The build edits copies.** It adds `await asyncio.sleep(0.05)` after each progress-bar line in the copy of `app_model.py`, because in the browser nothing on the page updates (including the loading overlay) until the script pauses. A top-level `await` is a syntax error on Community Cloud, so it must never go into the source. If the progress lines change, the build stops with an assertion in `stlite/build.py`.
+- **It runs a different Streamlit.** stlite bundles its own fork (currently 1.65.0), not the pinned 1.63.0. After changing `STLITE_VERSION` in `stlite/build.py`, check a run, the animation, the comparison tab, and a phone-width window again.
+
 ### A note on `_ARCHIVE/`
 
-[_ARCHIVE/](_ARCHIVE/) holds an earlier approach that ran the app entirely in the browser with [stlite](https://github.com/whitphx/stlite), packaged with stlitepack:
-
-- `pack.py` - the stlitepack script that bundled the app.
-- `docs/index.html` - the stlite page it generated.
-
-This code does not work with the app's automatic animation replay, which is why the app moved to Streamlit Community Cloud. It is kept for reference only and is not used by the current app.
+[_ARCHIVE/](_ARCHIVE/) holds an earlier approach that ran the app in the browser with stlite, packaged with stlitepack (`pack.py`, and the page it generated in `docs/index.html`). It did not work with the app's automatic animation replay, which is why the app moved to Streamlit Community Cloud. It has been replaced by `stlite/` above and is kept for reference only.
 
 ## Project structure
 
@@ -136,6 +161,8 @@ This code does not work with the app's automatic animation replay, which is why 
 | `data/ed_arrivals.csv` | Hourly arrival rates for each hour of the day, starting at 6am (time-dependent arrival profile). |
 | `style.css`, `.streamlit/config.toml` | Dark theme, fonts and custom styling. |
 | `resources/` | Logos, animation background images and the HSMA Display font. `make_hospital_background.py` regenerates the floor plan background used in the animation. |
+| `stlite/` | The in-browser build: `build.py` (builds `_site/`), the `index.html` template and `stlite_shims.py` (browser-only import stand-ins and pandas setting). |
+| `.github/workflows/stlite-pages.yml` | Builds the in-browser version and publishes it to GitHub Pages on every push to `main`. |
 
 ## Model info
 
